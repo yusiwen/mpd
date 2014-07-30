@@ -298,17 +298,24 @@ android/build/res/drawable/icon.png: mpd.svg
 	mkdir -p $(@D)
 	rsvg-convert --width=48 --height=48 $< -o $@
 
-android/build/bin/Main-debug.apk: android/build/build.xml android/build/res/drawable/icon.png android/build/libs/armeabi-v7a/libmpd.so
+APK_DEPS = android/build/res/drawable/icon.png \
+	android/build/libs/armeabi-v7a/libmpd.so \
+	$(wildcard $(srcdir)/android/src/*.java) \
+	android/build/build.xml
+
+android/build/bin/Main-debug.apk: $(APK_DEPS)
 	cd android/build && ant nodeps debug
 
-android/build/bin/Main-release-unsigned.apk: android/build/build.xml android/build/libs/armeabi-v7a/libmpd.so
+android/build/bin/Main-release-unsigned.apk: $(APK_DEPS)
 	cd android/build && ant nodeps release
 
 android/build/bin/Main-release-unaligned.apk: android/build/bin/Main-release-unsigned.apk
 	jarsigner -digestalg SHA1 -sigalg MD5withRSA -storepass:env ANDROID_KEYSTORE_PASS -keystore $(ANDROID_KEYSTORE) -signedjar $@ $< $(ANDROID_KEY_ALIAS)
 
+ANDROID_SDK_BUILD_TOOLS_VERSION = 20.0.0
+
 android/build/bin/Main.apk: android/build/bin/Main-release-unaligned.apk
-	$(ANDROID_SDK)/tools/zipalign -f 4 $< $@
+	$(ANDROID_SDK)/build-tools/$(ANDROID_SDK_BUILD_TOOLS_VERSION)/zipalign -f 4 $< $@
 
 endif
 
