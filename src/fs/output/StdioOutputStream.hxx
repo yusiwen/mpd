@@ -17,23 +17,29 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_PLAYLIST_DATABASE_HXX
-#define MPD_PLAYLIST_DATABASE_HXX
+#ifndef MPD_STDIO_OUTPUT_STREAM_HXX
+#define MPD_STDIO_OUTPUT_STREAM_HXX
 
 #include "check.h"
+#include "OutputStream.hxx"
+#include "fs/AllocatedPath.hxx"
 
-#define PLAYLIST_META_BEGIN "playlist_begin: "
+#include <stdio.h>
 
-class PlaylistVector;
-class BufferedOutputStream;
-class TextFile;
-class Error;
+class StdioOutputStream final : public OutputStream {
+	FILE *const file;
 
-void
-playlist_vector_save(BufferedOutputStream &os, const PlaylistVector &pv);
+public:
+	StdioOutputStream(FILE *_file):file(_file) {}
 
-bool
-playlist_metadata_load(TextFile &file, PlaylistVector &pv, const char *name,
-		       Error &error);
+	/* virtual methods from class OutputStream */
+	bool Write(const void *data, size_t size,
+		   gcc_unused Error &error) override {
+		fwrite(data, 1, size, file);
+
+		/* this class is debug-only and ignores errors */
+		return true;
+	}
+};
 
 #endif

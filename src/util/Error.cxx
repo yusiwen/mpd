@@ -133,11 +133,42 @@ Error::FormatErrno(const char *fmt, ...)
 #ifdef WIN32
 
 void
-Error::SetLastError(const char *prefix)
+Error::SetLastError(DWORD _code, const char *prefix)
 {
-	DWORD _code = GetLastError();
 	const char *msg = g_win32_error_message(_code);
 	Format(win32_domain, int(_code), "%s: %s", prefix, msg);
+}
+
+void
+Error::SetLastError(const char *prefix)
+{
+	SetLastError(GetLastError(), prefix);
+}
+
+void
+Error::FormatLastError(DWORD _code, const char *fmt, ...)
+{
+	char buffer[1024];
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(buffer, sizeof(buffer), fmt, ap);
+	va_end(ap);
+
+	SetLastError(_code, buffer);
+}
+
+void
+Error::FormatLastError(const char *fmt, ...)
+{
+	DWORD _code = GetLastError();
+
+	char buffer[1024];
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(buffer, sizeof(buffer), fmt, ap);
+	va_end(ap);
+
+	SetLastError(_code, buffer);
 }
 
 #endif

@@ -17,23 +17,52 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_PLAYLIST_DATABASE_HXX
-#define MPD_PLAYLIST_DATABASE_HXX
+#ifndef MPD_FILE_OUTPUT_STREAM_HXX
+#define MPD_FILE_OUTPUT_STREAM_HXX
 
 #include "check.h"
+#include "OutputStream.hxx"
+#include "fs/AllocatedPath.hxx"
 
-#define PLAYLIST_META_BEGIN "playlist_begin: "
+#include <assert.h>
 
-class PlaylistVector;
-class BufferedOutputStream;
-class TextFile;
-class Error;
+#ifdef WIN32
+#include <windows.h>
+#endif
 
-void
-playlist_vector_save(BufferedOutputStream &os, const PlaylistVector &pv);
+class Path;
 
-bool
-playlist_metadata_load(TextFile &file, PlaylistVector &pv, const char *name,
-		       Error &error);
+class FileOutputStream final : public OutputStream {
+	AllocatedPath path;
+
+#ifdef WIN32
+	HANDLE handle;
+#else
+	int fd;
+#endif
+
+public:
+	FileOutputStream(Path _path, Error &error);
+
+	~FileOutputStream() {
+		if (IsDefined())
+			Cancel();
+	}
+
+
+	bool IsDefined() const {
+#ifdef WIN32
+		return handle != INVALID_HANDLE_VALUE;
+#else
+		return fd >= 0;
+#endif
+	}
+
+	bool Commit(Error &error);
+	void Cancel();
+
+	/* virtual methods from class OutputStream */
+	bool Write(const void *data, size_t size, Error &error) override;
+};
 
 #endif

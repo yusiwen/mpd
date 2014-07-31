@@ -17,23 +17,55 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_PLAYLIST_DATABASE_HXX
-#define MPD_PLAYLIST_DATABASE_HXX
+#ifndef MPD_BUFFERED_OUTPUT_STREAM_HXX
+#define MPD_BUFFERED_OUTPUT_STREAM_HXX
 
 #include "check.h"
+#include "Compiler.h"
+#include "util/DynamicFifoBuffer.hxx"
+#include "util/Error.hxx"
 
-#define PLAYLIST_META_BEGIN "playlist_begin: "
+#include <stddef.h>
 
-class PlaylistVector;
-class BufferedOutputStream;
-class TextFile;
+class OutputStream;
 class Error;
 
-void
-playlist_vector_save(BufferedOutputStream &os, const PlaylistVector &pv);
+class BufferedOutputStream {
+	OutputStream &os;
 
-bool
-playlist_metadata_load(TextFile &file, PlaylistVector &pv, const char *name,
-		       Error &error);
+	DynamicFifoBuffer<char> buffer;
+
+	Error last_error;
+
+public:
+	BufferedOutputStream(OutputStream &_os)
+		:os(_os), buffer(32768) {}
+
+	bool Write(const void *data, size_t size);
+	bool Write(const char *p);
+
+	gcc_printf(2,3)
+	bool Format(const char *fmt, ...);
+
+	gcc_pure
+	bool Check() const {
+		return !last_error.IsDefined();
+	}
+
+	bool Check(Error &error) const {
+		if (last_error.IsDefined()) {
+			error.Set(last_error);
+			return false;
+		} else
+			return true;
+	}
+
+	bool Flush();
+
+	bool Flush(Error &error);
+
+private:
+	bool AppendToBuffer(const void *data, size_t size);
+};
 
 #endif
