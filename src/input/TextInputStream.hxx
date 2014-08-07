@@ -20,15 +20,13 @@
 #ifndef MPD_TEXT_INPUT_STREAM_HXX
 #define MPD_TEXT_INPUT_STREAM_HXX
 
-#include "util/FifoBuffer.hxx"
-
-#include <string>
+#include "util/StaticFifoBuffer.hxx"
 
 class InputStream;
 
 class TextInputStream {
 	InputStream &is;
-	FifoBuffer<char, 4096> buffer;
+	StaticFifoBuffer<char, 4096> buffer;
 
 public:
 	/**
@@ -46,11 +44,9 @@ public:
 	/**
 	 * Reads the next line from the stream with newline character stripped.
 	 *
-	 * @param line a string to put result to
-	 * @return true if line is read successfully, false on end of file
-	 * or error
+	 * @return a pointer to the line, or nullptr on end-of-file or error
 	 */
-	bool ReadLine(std::string &line);
+	char *ReadLine();
 };
 
 #endif
