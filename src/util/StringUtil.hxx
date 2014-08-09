@@ -27,20 +27,53 @@
 /**
  * Returns a pointer to the first non-whitespace character in the
  * string, or to the end of the string.
- *
- * This is a faster version of g_strchug(), because it does not move
- * data.
  */
 gcc_pure
 const char *
-strchug_fast(const char *p);
+StripLeft(const char *p);
 
 gcc_pure
 static inline char *
-strchug_fast(char *p)
+StripLeft(char *p)
 {
-	return const_cast<char *>(strchug_fast((const char *)p));
+	return const_cast<char *>(StripLeft((const char *)p));
 }
+
+gcc_pure
+const char *
+StripLeft(const char *p, const char *end);
+
+/**
+ * Determine the string's end as if it was stripped on the right side.
+ */
+gcc_pure
+const char *
+StripRight(const char *p, const char *end);
+
+/**
+ * Determine the string's end as if it was stripped on the right side.
+ */
+gcc_pure
+static inline char *
+StripRight(char *p, char *end)
+{
+	return const_cast<char *>(StripRight((const char *)p,
+					     (const char *)end));
+}
+
+/**
+ * Determine the string's length as if it was stripped on the right
+ * side.
+ */
+gcc_pure
+size_t
+StripRight(const char *p, size_t length);
+
+/**
+ * Strip trailing whitespace by null-terminating the string.
+ */
+void
+StripRight(char *p);
 
 /**
  * Skip whitespace at the beginning and terminate the string after the

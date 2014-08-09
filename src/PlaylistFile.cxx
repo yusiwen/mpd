@@ -25,7 +25,7 @@
 #include "DetachedSong.hxx"
 #include "SongLoader.hxx"
 #include "Mapper.hxx"
-#include "fs/TextFile.hxx"
+#include "fs/io/TextFile.hxx"
 #include "config/ConfigGlobal.hxx"
 #include "config/ConfigOption.hxx"
 #include "config/ConfigDefaults.hxx"
@@ -114,6 +114,29 @@ spl_map_to_fs(const char *name_utf8, Error &error)
 			  "Bad playlist name");
 
 	return path_fs;
+}
+
+gcc_pure
+static bool
+IsNotFoundError(const Error &error)
+{
+#ifdef WIN32
+	return error.IsDomain(win32_domain) &&
+		error.GetCode() == ERROR_FILE_NOT_FOUND;
+#else
+	return error.IsDomain(errno_domain) &&
+		error.GetCode() == ENOENT;
+#endif
+}
+
+static void
+TranslatePlaylistError(Error &error)
+{
+	if (IsNotFoundError(error)) {
+		error.Clear();
+		error.Set(playlist_domain, int(PlaylistResult::NO_SUCH_LIST),
+			  "No such playlist");
+	}
 }
 
 /**
@@ -228,9 +251,9 @@ LoadPlaylistFile(const char *utf8path, Error &error)
 	if (path_fs.IsNull())
 		return contents;
 
-	TextFile file(path_fs);
+	TextFile file(path_fs, error);
 	if (file.HasFailed()) {
-		playlist_errno(error);
+		TranslatePlaylistError(error);
 		return contents;
 	}
 

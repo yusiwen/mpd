@@ -31,9 +31,9 @@
 #include "DatabaseSave.hxx"
 #include "db/DatabaseLock.hxx"
 #include "db/DatabaseError.hxx"
-#include "fs/TextFile.hxx"
-#include "fs/output/BufferedOutputStream.hxx"
-#include "fs/output/FileOutputStream.hxx"
+#include "fs/io/TextFile.hxx"
+#include "fs/io/BufferedOutputStream.hxx"
+#include "fs/io/FileOutputStream.hxx"
 #include "config/ConfigData.hxx"
 #include "fs/FileSystem.hxx"
 #include "util/CharUtil.hxx"
@@ -168,12 +168,9 @@ SimpleDatabase::Load(Error &error)
 	assert(!path.IsNull());
 	assert(root != nullptr);
 
-	TextFile file(path);
-	if (file.HasFailed()) {
-		error.FormatErrno("Failed to open database file \"%s\"",
-				  path_utf8.c_str());
+	TextFile file(path, error);
+	if (file.HasFailed())
 		return false;
-	}
 
 	if (!db_load_internal(file, *root, error))
 		return false;

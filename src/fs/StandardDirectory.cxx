@@ -40,9 +40,9 @@
 #endif
 
 #ifdef USE_XDG
-#include "util/CharUtil.hxx"
+#include "util/Error.hxx"
 #include "util/StringUtil.hxx"
-#include "TextFile.hxx"
+#include "io/TextFile.hxx"
 #include <string.h>
 #include <utility>
 #endif
@@ -125,11 +125,11 @@ static AllocatedPath GetStandardDir(int folder_id)
 
 static const char home_prefix[] = "$HOME/";
 
-static bool ParseConfigLine(const char *line, const char *dir_name,
-			    AllocatedPath &result_dir)
+static bool
+ParseConfigLine(char *line, const char *dir_name, AllocatedPath &result_dir)
 {
 	// strip leading white space
-	line = strchug_fast(line);
+	line = StripLeft(line);
 
 	// check for end-of-line or comment
 	if (*line == '\0' || *line == '#')
@@ -141,11 +141,11 @@ static bool ParseConfigLine(const char *line, const char *dir_name,
 	line += strlen(dir_name);
 
 	// strip equals sign and spaces around it
-	line = strchug_fast(line);
+	line = StripLeft(line);
 	if (*line != '=')
 		return false;
 	++line;
-	line = strchug_fast(line);
+	line = StripLeft(line);
 
 	// check if path is quoted
 	bool quoted = false;
@@ -162,33 +162,33 @@ static bool ParseConfigLine(const char *line, const char *dir_name,
 	}
 
 
-	const char *line_end;
+	char *line_end;
 	// find end of the string
 	if (quoted) {
 		line_end = strrchr(line, '"');
 		if (line_end == nullptr)
 			return true;
 	} else {
-		line_end = line + strlen(line);
-		while (line < line_end && IsWhitespaceNotNull(line_end[-1]))
-			--line_end;
+		line_end = StripRight(line, line + strlen(line));
 	}
 
 	// check for empty result
 	if (line == line_end)
 		return true;
 
-	// build the result path	
-	std::string path(line, line_end);
+	*line_end = 0;
+
+	// build the result path
+	const char *path = line;
 
 	auto result = AllocatedPath::Null();
 	if (home_relative) {
 		auto home = GetHomeDir();
 		if (home.IsNull())
 			return true;
-		result = AllocatedPath::Build(home, path.c_str());
+		result = AllocatedPath::Build(home, path);
 	} else {
-		result = AllocatedPath::FromFS(std::move(path));
+		result = AllocatedPath::FromFS(path);
 	}
 
 	if (IsValidDir(result.c_str())) {
@@ -205,10 +205,10 @@ static AllocatedPath GetUserDir(const char *name)
 	if (config_dir.IsNull())
 		return result;
 	auto dirs_file = AllocatedPath::Build(config_dir, "user-dirs.dirs");
-	TextFile input(dirs_file);
+	TextFile input(dirs_file, IgnoreError());
 	if (input.HasFailed())
 		return result;
-	const char *line;
+	char *line;
 	while ((line = input.ReadLine()) != nullptr)
 		if (ParseConfigLine(line, name, result))
 			return result;

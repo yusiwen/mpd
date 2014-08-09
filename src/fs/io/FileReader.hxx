@@ -17,22 +17,51 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-#include "TagSave.hxx"
-#include "tag/Tag.hxx"
-#include "fs/io/BufferedOutputStream.hxx"
+#ifndef MPD_FILE_READER_HXX
+#define MPD_FILE_READER_HXX
 
-#define SONG_TIME "Time: "
+#include "check.h"
+#include "Reader.hxx"
+#include "fs/AllocatedPath.hxx"
 
-void
-tag_save(BufferedOutputStream &os, const Tag &tag)
-{
-	if (tag.time >= 0)
-		os.Format(SONG_TIME "%i\n", tag.time);
+#include <assert.h>
 
-	if (tag.has_playlist)
-		os.Format("Playlist: yes\n");
+#ifdef WIN32
+#include <windows.h>
+#endif
 
-	for (const auto &i : tag)
-		os.Format("%s: %s\n", tag_item_names[i.type], i.value);
-}
+class Path;
+
+class FileReader final : public Reader {
+	AllocatedPath path;
+
+#ifdef WIN32
+	HANDLE handle;
+#else
+	int fd;
+#endif
+
+public:
+	FileReader(Path _path, Error &error);
+
+	~FileReader() {
+		if (IsDefined())
+			Close();
+	}
+
+
+	bool IsDefined() const {
+#ifdef WIN32
+		return handle != INVALID_HANDLE_VALUE;
+#else
+		return fd >= 0;
+#endif
+	}
+
+	void Close();
+
+	/* virtual methods from class Reader */
+	size_t Read(void *data, size_t size, Error &error) override;
+};
+
+#endif

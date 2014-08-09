@@ -82,7 +82,7 @@ extm3u_parse_tag(const char *line)
 		/* 0 means unknown duration */
 		duration = 0;
 
-	name = strchug_fast(endptr + 1);
+	name = StripLeft(endptr + 1);
 	if (*name == 0 && duration == 0)
 		/* no information available; don't allocate a tag
 		   object */
@@ -104,19 +104,21 @@ DetachedSong *
 ExtM3uPlaylist::NextSong()
 {
 	Tag tag;
-	const char *line_s;
+	char *line_s;
 
 	do {
 		line_s = tis.ReadLine();
 		if (line_s == nullptr)
 			return nullptr;
 
+		StripRight(line_s);
+
 		if (StringStartsWith(line_s, "#EXTINF:")) {
 			tag = extm3u_parse_tag(line_s + 8);
 			continue;
 		}
 
-		line_s = strchug_fast(line_s);
+		line_s = StripLeft(line_s);
 	} while (line_s[0] == '#' || *line_s == 0);
 
 	return new DetachedSong(line_s, std::move(tag));

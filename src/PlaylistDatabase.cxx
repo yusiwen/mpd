@@ -20,8 +20,8 @@
 #include "config.h"
 #include "PlaylistDatabase.hxx"
 #include "db/PlaylistVector.hxx"
-#include "fs/TextFile.hxx"
-#include "fs/output/BufferedOutputStream.hxx"
+#include "fs/io/TextFile.hxx"
+#include "fs/io/BufferedOutputStream.hxx"
 #include "util/StringUtil.hxx"
 #include "util/Error.hxx"
 #include "util/Domain.hxx"
@@ -60,7 +60,7 @@ playlist_metadata_load(TextFile &file, PlaylistVector &pv, const char *name,
 		}
 
 		*colon++ = 0;
-		value = strchug_fast(colon);
+		value = StripLeft(colon);
 
 		if (strcmp(line, "mtime") == 0)
 			pm.mtime = strtol(value, nullptr, 10);

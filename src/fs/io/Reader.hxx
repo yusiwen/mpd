@@ -17,22 +17,35 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-#include "TagSave.hxx"
-#include "tag/Tag.hxx"
-#include "fs/io/BufferedOutputStream.hxx"
+#ifndef MPD_READER_HXX
+#define MPD_READER_HXX
 
-#define SONG_TIME "Time: "
+#include "check.h"
+#include "Compiler.h"
 
-void
-tag_save(BufferedOutputStream &os, const Tag &tag)
-{
-	if (tag.time >= 0)
-		os.Format(SONG_TIME "%i\n", tag.time);
+#include <stddef.h>
 
-	if (tag.has_playlist)
-		os.Format("Playlist: yes\n");
+class Error;
 
-	for (const auto &i : tag)
-		os.Format("%s: %s\n", tag_item_names[i.type], i.value);
-}
+/**
+ * An interface that can read bytes from a stream until the stream
+ * ends.
+ *
+ * This interface is simpler and less cumbersome to use than
+ * #InputStream.
+ */
+class Reader {
+public:
+	Reader() = default;
+	Reader(const Reader &) = delete;
+
+	/**
+	 * Read data from the stream.
+	 *
+	 * @return the number of bytes read into the given buffer or 0
+	 * on error/end-of-stream
+	 */
+	virtual size_t Read(void *data, size_t size, Error &error) = 0;
+};
+
+#endif

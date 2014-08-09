@@ -22,29 +22,26 @@
 
 #include "Compiler.h"
 
-#include <stdio.h>
 #include <stddef.h>
 
 class Path;
+class Error;
+class FileReader;
+class BufferedReader;
 
 class TextFile {
-	static constexpr size_t max_length = 512 * 1024;
-	static constexpr size_t step = 1024;
-
-	FILE *const file;
-
-	char *buffer;
-	size_t capacity, length;
+	FileReader *const file_reader;
+	BufferedReader *const buffered_reader;
 
 public:
-	TextFile(Path path_fs);
+	TextFile(Path path_fs, Error &error);
 
 	TextFile(const TextFile &other) = delete;
 
 	~TextFile();
 
 	bool HasFailed() const {
-		return gcc_unlikely(file == nullptr);
+		return gcc_unlikely(buffered_reader == nullptr);
 	}
 
 	/**
@@ -53,7 +50,6 @@ public:
 	 * prevent denial of service.
 	 *
 	 * @param file the source file, opened in text mode
-	 * @param buffer an allocator for the buffer
 	 * @return a pointer to the line, or nullptr on end-of-file or error
 	 */
 	char *ReadLine();

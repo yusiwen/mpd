@@ -18,21 +18,31 @@
  */
 
 #include "config.h"
-#include "TagSave.hxx"
-#include "tag/Tag.hxx"
-#include "fs/io/BufferedOutputStream.hxx"
+#include "TextFile.hxx"
+#include "FileReader.hxx"
+#include "BufferedReader.hxx"
+#include "fs/Path.hxx"
 
-#define SONG_TIME "Time: "
+#include <assert.h>
 
-void
-tag_save(BufferedOutputStream &os, const Tag &tag)
+TextFile::TextFile(Path path_fs, Error &error)
+	:file_reader(new FileReader(path_fs, error)),
+	 buffered_reader(file_reader->IsDefined()
+			 ? new BufferedReader(*file_reader)
+			 : nullptr)
 {
-	if (tag.time >= 0)
-		os.Format(SONG_TIME "%i\n", tag.time);
+}
 
-	if (tag.has_playlist)
-		os.Format("Playlist: yes\n");
+TextFile::~TextFile()
+{
+	delete buffered_reader;
+	delete file_reader;
+}
 
-	for (const auto &i : tag)
-		os.Format("%s: %s\n", tag_item_names[i.type], i.value);
+char *
+TextFile::ReadLine()
+{
+	assert(buffered_reader != nullptr);
+
+	return buffered_reader->ReadLine();
 }
