@@ -17,22 +17,36 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-#include "TagSave.hxx"
-#include "tag/Tag.hxx"
-#include "fs/io/BufferedOutputStream.hxx"
+#ifndef MPD_PEEK_READER_HXX
+#define MPD_PEEK_READER_HXX
 
-#define SONG_TIME "Time: "
+#include "check.h"
+#include "Reader.hxx"
 
-void
-tag_save(BufferedOutputStream &os, const Tag &tag)
-{
-	if (tag.time >= 0)
-		os.Format(SONG_TIME "%i\n", tag.time);
+#include <stdint.h>
 
-	if (tag.has_playlist)
-		os.Format("Playlist: yes\n");
+class AutoGunzipReader;
 
-	for (const auto &i : tag)
-		os.Format("%s: %s\n", tag_item_names[i.type], i.value);
-}
+/**
+ * A filter that allows the caller to peek the first few bytes without
+ * consuming them.  The first call must be Peek(), and the following
+ * Read() will deliver the same bytes again.
+ */
+class PeekReader final : public Reader {
+	Reader &next;
+
+	size_t buffer_size, buffer_position;
+
+	uint8_t buffer[64];
+
+public:
+	PeekReader(Reader &_next)
+		:next(_next), buffer_size(0), buffer_position(0) {}
+
+	const void *Peek(size_t size, Error &error);
+
+	/* virtual methods from class Reader */
+	virtual size_t Read(void *data, size_t size, Error &error) override;
+};
+
+#endif

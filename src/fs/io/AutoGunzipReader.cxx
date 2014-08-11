@@ -18,21 +18,53 @@
  */
 
 #include "config.h"
-#include "TagSave.hxx"
-#include "tag/Tag.hxx"
-#include "fs/io/BufferedOutputStream.hxx"
+#include "AutoGunzipReader.hxx"
+#include "GunzipReader.hxx"
+#include "util/Error.hxx"
 
-#define SONG_TIME "Time: "
-
-void
-tag_save(BufferedOutputStream &os, const Tag &tag)
+AutoGunzipReader::~AutoGunzipReader()
 {
-	if (tag.time >= 0)
-		os.Format(SONG_TIME "%i\n", tag.time);
+	delete gunzip;
+}
 
-	if (tag.has_playlist)
-		os.Format("Playlist: yes\n");
+gcc_pure
+static bool
+IsGzip(const uint8_t data[4])
+{
+	return data[0] == 0x1f && data[1] == 0x8b && data[2] == 0x08 &&
+		(data[3] & 0xe0) == 0;
+}
 
-	for (const auto &i : tag)
-		os.Format("%s: %s\n", tag_item_names[i.type], i.value);
+inline bool
+AutoGunzipReader::Detect(Error &error)
+{
+	const uint8_t *data = (const uint8_t *)peek.Peek(4, error);
+	if (data == nullptr) {
+		if (error.IsDefined())
+			return false;
+
+		next = &peek;
+		return true;
+	}
+
+	if (IsGzip(data)) {
+		gunzip = new GunzipReader(peek, error);
+		if (!gunzip->IsDefined())
+			return false;
+
+
+		next = gunzip;
+	} else
+		next = &peek;
+
+	return true;
+}
+
+size_t
+AutoGunzipReader::Read(void *data, size_t size, Error &error)
+{
+	if (next == nullptr && !Detect(error))
+		return false;
+
+	return next->Read(data, size, error);
 }

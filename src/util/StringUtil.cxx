@@ -27,7 +27,7 @@
 #include <string.h>
 
 const char *
-strchug_fast(const char *p)
+StripLeft(const char *p)
 {
 	while (IsWhitespaceNotNull(*p))
 		++p;
@@ -35,17 +35,46 @@ strchug_fast(const char *p)
 	return p;
 }
 
+const char *
+StripLeft(const char *p, const char *end)
+{
+	while (p < end && IsWhitespaceOrNull(*p))
+		++p;
+
+	return p;
+}
+
+const char *
+StripRight(const char *p, const char *end)
+{
+	while (end > p && IsWhitespaceOrNull(end[-1]))
+		--end;
+
+	return end;
+}
+
+size_t
+StripRight(const char *p, size_t length)
+{
+	while (length > 0 && IsWhitespaceOrNull(p[length - 1]))
+		--length;
+
+	return length;
+}
+
+void
+StripRight(char *p)
+{
+	size_t old_length = strlen(p);
+	size_t new_length = StripRight(p, old_length);
+	p[new_length] = 0;
+}
+
 char *
 Strip(char *p)
 {
-	p = strchug_fast(p);
-
-	size_t length = strlen(p);
-	while (length > 0 && IsWhitespaceNotNull(p[length - 1]))
-		--length;
-
-	p[length] = 0;
-
+	p = StripLeft(p);
+	StripRight(p);
 	return p;
 }
 

@@ -22,8 +22,8 @@
 #include "db/plugins/simple/Song.hxx"
 #include "DetachedSong.hxx"
 #include "TagSave.hxx"
-#include "fs/TextFile.hxx"
-#include "fs/output/BufferedOutputStream.hxx"
+#include "fs/io/TextFile.hxx"
+#include "fs/io/BufferedOutputStream.hxx"
 #include "tag/Tag.hxx"
 #include "tag/TagBuilder.hxx"
 #include "util/StringUtil.hxx"
@@ -94,7 +94,7 @@ song_load(TextFile &file, const char *uri,
 		}
 
 		*colon++ = 0;
-		const char *value = strchug_fast(colon);
+		const char *value = StripLeft(colon);
 
 		TagType type;
 		if ((type = tag_name_parse(line)) != TAG_NUM_OF_ITEM_TYPES) {

@@ -17,46 +17,35 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_TEXT_FILE_HXX
-#define MPD_TEXT_FILE_HXX
+#ifndef MPD_AUTO_GUNZIP_READER_HXX
+#define MPD_AUTO_GUNZIP_READER_HXX
 
-#include "Compiler.h"
+#include "check.h"
+#include "PeekReader.hxx"
 
-#include <stdio.h>
-#include <stddef.h>
+#include <stdint.h>
 
-class Path;
+class GunzipReader;
 
-class TextFile {
-	static constexpr size_t max_length = 512 * 1024;
-	static constexpr size_t step = 1024;
-
-	FILE *const file;
-
-	char *buffer;
-	size_t capacity, length;
+/**
+ * A filter that detects gzip compression and optionally inserts a
+ * #GunzipReader.
+ */
+class AutoGunzipReader final : public Reader {
+	Reader *next;
+	PeekReader peek;
+	GunzipReader *gunzip;
 
 public:
-	TextFile(Path path_fs);
+	AutoGunzipReader(Reader &_next)
+		:next(nullptr), peek(_next), gunzip(nullptr) {}
+	~AutoGunzipReader();
 
-	TextFile(const TextFile &other) = delete;
+	/* virtual methods from class Reader */
+	virtual size_t Read(void *data, size_t size, Error &error) override;
 
-	~TextFile();
-
-	bool HasFailed() const {
-		return gcc_unlikely(file == nullptr);
-	}
-
-	/**
-	 * Reads a line from the input file, and strips trailing
-	 * space.  There is a reasonable maximum line length, only to
-	 * prevent denial of service.
-	 *
-	 * @param file the source file, opened in text mode
-	 * @param buffer an allocator for the buffer
-	 * @return a pointer to the line, or nullptr on end-of-file or error
-	 */
-	char *ReadLine();
+private:
+	bool Detect(Error &error);
 };
 
 #endif

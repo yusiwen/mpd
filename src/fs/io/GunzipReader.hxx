@@ -17,30 +17,29 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_GZIP_OUTPUT_STREAM_HXX
-#define MPD_GZIP_OUTPUT_STREAM_HXX
+#ifndef MPD_GUNZIP_READER_HXX
+#define MPD_GUNZIP_READER_HXX
 
 #include "check.h"
-#include "OutputStream.hxx"
+#include "Reader.hxx"
+#include "util/StaticFifoBuffer.hxx"
 
-#include <assert.h>
 #include <zlib.h>
 
 class Error;
 class Domain;
 
-extern const Domain zlib_domain;
-
 /**
- * A filter that compresses data written to it using zlib, forwarding
- * compressed data in the "gzip" format.
- *
- * Don't forget to call Flush() before destructing this object.
+ * A filter that decompresses data using zlib.
  */
-class GzipOutputStream final : public OutputStream {
-	OutputStream &next;
+class GunzipReader final : public Reader {
+	Reader &next;
+
+	bool eof;
 
 	z_stream z;
+
+	StaticFifoBuffer<Bytef, 4096> buffer;
 
 public:
 	/**
@@ -48,8 +47,8 @@ public:
 	 * the constructor has succeeded.  If not, #error will hold
 	 * information about the failure.
 	 */
-	GzipOutputStream(OutputStream &_next, Error &error);
-	~GzipOutputStream();
+	GunzipReader(Reader &_next, Error &error);
+	~GunzipReader();
 
 	/**
 	 * Check whether the constructor has succeeded.
@@ -58,14 +57,11 @@ public:
 		return z.opaque == nullptr;
 	}
 
-	/**
-	 * Finish the file and write all data remaining in zlib's
-	 * output buffer.
-	 */
-	bool Flush(Error &error);
+	/* virtual methods from class Reader */
+	virtual size_t Read(void *data, size_t size, Error &error) override;
 
-	/* virtual methods from class OutputStream */
-	bool Write(const void *data, size_t size, Error &error) override;
+private:
+	bool FillBuffer(Error &error);
 };
 
 #endif

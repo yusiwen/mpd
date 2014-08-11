@@ -20,60 +20,51 @@
 #include "config.h"
 #include "TextInputStream.hxx"
 #include "InputStream.hxx"
-#include "util/CharUtil.hxx"
 #include "util/Error.hxx"
+#include "util/TextFile.hxx"
 #include "Log.hxx"
 
 #include <assert.h>
-#include <string.h>
 
 char *
 TextInputStream::ReadLine()
 {
-	char *src, *p;
+	char *line = ReadBufferedLine(buffer);
+	if (line != nullptr)
+		return line;
 
-	do {
-		size_t nbytes;
+	while (true) {
 		auto dest = buffer.Write();
-		if (dest.size >= 2) {
-			/* reserve one byte for the null terminator if
-			   the last line is not terminated by a
-			   newline character */
-			--dest.size;
-
-			Error error;
-			nbytes = is.LockRead(dest.data, dest.size, error);
-			if (nbytes > 0)
-				buffer.Append(nbytes);
-			else if (error.IsDefined()) {
-				LogError(error);
-				return nullptr;
-			}
-		} else
-			nbytes = 0;
-
-		auto src_p = buffer.Read();
-		if (src_p.IsEmpty())
-			return nullptr;
-
-		src = src_p.data;
-
-		p = reinterpret_cast<char*>(memchr(src, '\n', src_p.size));
-		if (p == nullptr && nbytes == 0) {
+		if (dest.size < 2) {
 			/* end of file (or line too long): terminate
 			   the current line */
-			dest = buffer.Write();
+
 			assert(!dest.IsEmpty());
 			dest[0] = 0;
+			line = buffer.Read().data;
 			buffer.Clear();
-			return src;
+			return line;
 		}
-	} while (p == nullptr);
 
-	buffer.Consume(p - src + 1);
+		/* reserve one byte for the null terminator if the
+		   last line is not terminated by a newline
+		   character */
+		--dest.size;
 
-	while (p > src && IsWhitespaceOrNull(p[-1]))
-		--p;
-	*p = 0;
-	return src;
+		Error error;
+		size_t nbytes = is.LockRead(dest.data, dest.size, error);
+		if (nbytes > 0)
+			buffer.Append(nbytes);
+		else if (error.IsDefined()) {
+			LogError(error);
+			return nullptr;
+		}
+
+		line = ReadBufferedLine(buffer);
+		if (line != nullptr)
+			return line;
+
+		if (nbytes == 0)
+			return nullptr;
+	}
 }

@@ -18,21 +18,43 @@
  */
 
 #include "config.h"
-#include "TagSave.hxx"
-#include "tag/Tag.hxx"
-#include "fs/io/BufferedOutputStream.hxx"
+#include "PeekReader.hxx"
 
-#define SONG_TIME "Time: "
+#include <algorithm>
 
-void
-tag_save(BufferedOutputStream &os, const Tag &tag)
+#include <assert.h>
+#include <string.h>
+
+const void *
+PeekReader::Peek(size_t size, Error &error)
 {
-	if (tag.time >= 0)
-		os.Format(SONG_TIME "%i\n", tag.time);
+	assert(size > 0);
+	assert(size < sizeof(buffer));
+	assert(buffer_size == 0);
+	assert(buffer_position == 0);
 
-	if (tag.has_playlist)
-		os.Format("Playlist: yes\n");
+	do {
+		size_t nbytes = next.Read(buffer + buffer_size,
+					size - buffer_size, error);
+		if (nbytes == 0)
+			return nullptr;
 
-	for (const auto &i : tag)
-		os.Format("%s: %s\n", tag_item_names[i.type], i.value);
+		buffer_size += nbytes;
+	} while (buffer_size < size);
+
+	return buffer;
+}
+
+size_t
+PeekReader::Read(void *data, size_t size, Error &error)
+{
+	size_t buffer_remaining = buffer_size - buffer_position;
+	if (buffer_remaining > 0) {
+		size_t nbytes = std::min(buffer_remaining, size);
+		memcpy(data, buffer + buffer_position, nbytes);
+		buffer_position += nbytes;
+		return nbytes;
+	}
+
+	return next.Read(data, size, error);
 }

@@ -7,10 +7,12 @@ ver 0.19 (not yet released)
   - "idle" with unrecognized event name fails
   - "list" on album artist falls back to the artist tag
   - "list" and "count" allow grouping
+  - new "search"/"find" filter "modified-since"
 * database
   - proxy: forward "idle" events
   - proxy: forward the "update" command
   - proxy: copy "Last-Modified" from remote directories
+  - simple: compress the database file using gzip
   - upnp: new plugin
   - cancel the update on shutdown
 * storage
@@ -38,6 +40,7 @@ ver 0.19 (not yet released)
   - audiofile: log libaudiofile errors
   - sndfile: support scanning remote files
   - sndfile: support tags "comment", "album", "track", "genre"
+  - mp4v2: support playback of MP4 files.
 * encoder:
   - shine: new encoder plugin
 * threads:

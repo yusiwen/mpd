@@ -17,22 +17,11 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-#include "TagSave.hxx"
-#include "tag/Tag.hxx"
-#include "fs/io/BufferedOutputStream.hxx"
+#ifndef MPD_ZLIB_DOMAIN_HXX
+#define MPD_ZLIB_DOMAIN_HXX
 
-#define SONG_TIME "Time: "
+class Domain;
 
-void
-tag_save(BufferedOutputStream &os, const Tag &tag)
-{
-	if (tag.time >= 0)
-		os.Format(SONG_TIME "%i\n", tag.time);
+extern const Domain zlib_domain;
 
-	if (tag.has_playlist)
-		os.Format("Playlist: yes\n");
-
-	for (const auto &i : tag)
-		os.Format("%s: %s\n", tag_item_names[i.type], i.value);
-}
+#endif

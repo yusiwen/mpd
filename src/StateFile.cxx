@@ -21,9 +21,9 @@
 #include "StateFile.hxx"
 #include "output/OutputState.hxx"
 #include "queue/PlaylistState.hxx"
-#include "fs/TextFile.hxx"
-#include "fs/output/FileOutputStream.hxx"
-#include "fs/output/BufferedOutputStream.hxx"
+#include "fs/io/TextFile.hxx"
+#include "fs/io/FileOutputStream.hxx"
+#include "fs/io/BufferedOutputStream.hxx"
 #include "Partition.hxx"
 #include "Instance.hxx"
 #include "mixer/Volume.hxx"
@@ -103,10 +103,10 @@ StateFile::Read()
 
 	FormatDebug(state_file_domain, "Loading state file %s", path_utf8.c_str());
 
-	TextFile file(path);
+	Error error;
+	TextFile file(path, error);
 	if (file.HasFailed()) {
-		FormatErrno(state_file_domain, "failed to open %s",
-			    path_utf8.c_str());
+		LogError(error);
 		return;
 	}
 

@@ -18,21 +18,7 @@
  */
 
 #include "config.h"
-#include "TagSave.hxx"
-#include "tag/Tag.hxx"
-#include "fs/io/BufferedOutputStream.hxx"
+#include "Domain.hxx"
+#include "util/Domain.hxx"
 
-#define SONG_TIME "Time: "
-
-void
-tag_save(BufferedOutputStream &os, const Tag &tag)
-{
-	if (tag.time >= 0)
-		os.Format(SONG_TIME "%i\n", tag.time);
-
-	if (tag.has_playlist)
-		os.Format("Playlist: yes\n");
-
-	for (const auto &i : tag)
-		os.Format("%s: %s\n", tag_item_names[i.type], i.value);
-}
+const Domain zlib_domain("zlib");

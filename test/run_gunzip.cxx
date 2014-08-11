@@ -18,7 +18,8 @@
  */
 
 #include "config.h"
-#include "fs/io/GzipOutputStream.hxx"
+#include "fs/io/GunzipReader.hxx"
+#include "fs/io/FileReader.hxx"
 #include "fs/io/StdioOutputStream.hxx"
 #include "util/Error.hxx"
 
@@ -27,18 +28,13 @@
 #include <unistd.h>
 
 static bool
-Copy(OutputStream &dest, int src, Error &error)
+Copy(OutputStream &dest, Reader &src, Error &error)
 {
 	while (true) {
 		char buffer[4096];
-		ssize_t nbytes = read(src, buffer, sizeof(buffer));
-		if (nbytes <= 0) {
-			if (nbytes < 0) {
-				error.SetErrno();
-				return false;
-			} else
-				return true;
-		}
+		size_t nbytes = src.Read(buffer, sizeof(buffer), error);
+		if (nbytes == 0)
+			return !error.IsDefined();
 
 		if (!dest.Write(buffer, nbytes, error))
 			return false;
@@ -46,31 +42,32 @@ Copy(OutputStream &dest, int src, Error &error)
 }
 
 static bool
-CopyGzip(OutputStream &_dest, int src, Error &error)
+CopyGunzip(OutputStream &dest, Reader &_src, Error &error)
 {
-	GzipOutputStream dest(_dest, error);
-	return dest.IsDefined() &&
-		Copy(dest, src, error) &&
-		dest.Flush(error);
+	GunzipReader src(_src, error);
+	return src.IsDefined() && Copy(dest, src, error);
 }
 
 static bool
-CopyGzip(FILE *_dest, int src, Error &error)
+CopyGunzip(FILE *_dest, Path src_path, Error &error)
 {
 	StdioOutputStream dest(_dest);
-	return CopyGzip(dest, src, error);
+	FileReader src(src_path, error);
+	return src.IsDefined() && CopyGunzip(dest, src, error);
 }
 
 int
 main(int argc, gcc_unused char **argv)
 {
-	if (argc != 1) {
-		fprintf(stderr, "Usage: run_gzip\n");
+	if (argc != 2) {
+		fprintf(stderr, "Usage: run_gunzip PATH\n");
 		return EXIT_FAILURE;
 	}
 
+	Path path = Path::FromFS(argv[1]);
+
 	Error error;
-	if (!CopyGzip(stdout, STDIN_FILENO, error)) {
+	if (!CopyGunzip(stdout, path, error)) {
 		fprintf(stderr, "%s\n", error.GetMessage());
 		return EXIT_FAILURE;
 	}

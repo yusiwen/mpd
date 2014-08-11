@@ -506,10 +506,15 @@ endif
 FS_LIBS = libfs.a
 
 libfs_a_SOURCES = \
-	src/fs/output/OutputStream.hxx \
-	src/fs/output/StdoutOutputStream.hxx \
-	src/fs/output/FileOutputStream.cxx src/fs/output/FileOutputStream.hxx \
-	src/fs/output/BufferedOutputStream.cxx src/fs/output/BufferedOutputStream.hxx \
+	src/fs/io/Reader.hxx \
+	src/fs/io/PeekReader.cxx src/fs/io/PeekReader.hxx \
+	src/fs/io/FileReader.cxx src/fs/io/FileReader.hxx \
+	src/fs/io/BufferedReader.cxx src/fs/io/BufferedReader.hxx \
+	src/fs/io/TextFile.cxx src/fs/io/TextFile.hxx \
+	src/fs/io/OutputStream.hxx \
+	src/fs/io/StdoutOutputStream.hxx \
+	src/fs/io/FileOutputStream.cxx src/fs/io/FileOutputStream.hxx \
+	src/fs/io/BufferedOutputStream.cxx src/fs/io/BufferedOutputStream.hxx \
 	src/fs/Domain.cxx src/fs/Domain.hxx \
 	src/fs/Limits.hxx \
 	src/fs/Traits.cxx src/fs/Traits.hxx \
@@ -517,7 +522,6 @@ libfs_a_SOURCES = \
 	src/fs/Charset.cxx src/fs/Charset.hxx \
 	src/fs/Path.cxx src/fs/Path.hxx \
 	src/fs/AllocatedPath.cxx src/fs/AllocatedPath.hxx \
-	src/fs/TextFile.cxx src/fs/TextFile.hxx \
 	src/fs/FileSystem.cxx src/fs/FileSystem.hxx \
 	src/fs/StandardDirectory.cxx src/fs/StandardDirectory.hxx \
 	src/fs/CheckFile.cxx src/fs/CheckFile.hxx \
@@ -526,7 +530,10 @@ libfs_a_CPPFLAGS = $(AM_CPPFLAGS) $(ZLIB_CFLAGS)
 
 if HAVE_ZLIB
 libfs_a_SOURCES += \
-	src/fs/output/GzipOutputStream.cxx src/fs/output/GzipOutputStream.hxx
+	src/lib/zlib/Domain.cxx src/lib/zlib/Domain.hxx \
+	src/fs/io/GunzipReader.cxx src/fs/io/GunzipReader.hxx \
+	src/fs/io/AutoGunzipReader.cxx src/fs/io/AutoGunzipReader.hxx \
+	src/fs/io/GzipOutputStream.cxx src/fs/io/GzipOutputStream.hxx
 FS_LIBS += $(ZLIB_LIBS)
 endif
 
@@ -796,6 +803,7 @@ libdecoder_a_CPPFLAGS = $(AM_CPPFLAGS) \
 	$(WAVPACK_CFLAGS) \
 	$(MAD_CFLAGS) \
 	$(MPG123_CFLAGS) \
+	$(MP4V2_CFLAGS) \
 	$(OPUS_CFLAGS) \
 	$(FFMPEG_CFLAGS) \
 	$(MPCDEC_CFLAGS) \
@@ -815,6 +823,7 @@ DECODER_LIBS = \
 	$(WAVPACK_LIBS) \
 	$(MAD_LIBS) \
 	$(MPG123_LIBS) \
+	$(MP4V2_LIBS) \
 	$(OPUS_LIBS) \
 	$(FFMPEG_LIBS) \
 	$(MPCDEC_LIBS) \
@@ -917,6 +926,12 @@ libmodplug_decoder_plugin_a_CXXFLAGS = $(AM_CXXFLAGS) $(MODPLUG_CFLAGS)
 libmodplug_decoder_plugin_a_CPPFLAGS = $(AM_CPPFLAGS)
 noinst_LIBRARIES += libmodplug_decoder_plugin.a
 DECODER_LIBS += libmodplug_decoder_plugin.a $(MODPLUG_LIBS)
+endif
+
+if HAVE_MP4V2
+libdecoder_a_SOURCES += \
+	src/decoder/plugins/Mp4v2DecoderPlugin.cxx \
+	src/decoder/plugins/Mp4v2DecoderPlugin.hxx
 endif
 
 if ENABLE_SIDPLAY
@@ -1489,8 +1504,8 @@ endif
 
 test_read_conf_LDADD = \
 	libconf.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	libutil.a \
 	$(GLIB_LIBS)
 test_read_conf_SOURCES = \
@@ -1513,8 +1528,8 @@ test_DumpDatabase_LDADD = \
 	libconf.a \
 	libutil.a \
 	libevent.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	$(ICU_LDADD) \
 	$(GLIB_LIBS)
 test_DumpDatabase_SOURCES = test/DumpDatabase.cxx \
@@ -1544,8 +1559,8 @@ test_run_input_LDADD = \
 	libutil.a \
 	libevent.a \
 	libthread.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	$(GLIB_LIBS)
 test_run_input_SOURCES = test/run_input.cxx \
 	test/stdbin.h \
@@ -1594,8 +1609,8 @@ test_visit_archive_LDADD = \
 	libutil.a \
 	libevent.a \
 	libthread.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	$(GLIB_LIBS)
 test_visit_archive_SOURCES = test/visit_archive.cxx \
 	src/Log.cxx src/LogBackend.cxx \
@@ -1606,11 +1621,20 @@ endif
 
 if HAVE_ZLIB
 
-noinst_PROGRAMS += test/run_gzip
+noinst_PROGRAMS += test/run_gzip test/run_gunzip
+
 test_run_gzip_LDADD = \
 	libutil.a \
 	$(FS_LIBS)
 test_run_gzip_SOURCES = test/run_gzip.cxx
+
+test_run_gunzip_SOURCES = test/run_gunzip.cxx \
+	src/Log.cxx src/LogBackend.cxx
+test_run_gunzip_LDADD = \
+	$(GLIB_LIBS) \
+	libutil.a \
+	$(FS_LIBS) \
+	libsystem.a
 
 endif
 
@@ -1640,8 +1664,8 @@ test_dump_playlist_LDADD = \
 	libconf.a \
 	libevent.a \
 	libthread.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	libutil.a \
 	libpcm.a \
 	$(GLIB_LIBS)
@@ -1670,8 +1694,8 @@ test_run_decoder_LDADD = \
 	libconf.a \
 	libevent.a \
 	libthread.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	libutil.a \
 	$(GLIB_LIBS)
 test_run_decoder_SOURCES = test/run_decoder.cxx \
@@ -1695,8 +1719,8 @@ test_read_tags_LDADD = \
 	libconf.a \
 	libevent.a \
 	libthread.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	libutil.a \
 	$(GLIB_LIBS)
 test_read_tags_SOURCES = test/read_tags.cxx \
@@ -1720,8 +1744,8 @@ endif
 test_run_filter_LDADD = \
 	$(FILTER_LIBS) \
 	libconf.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	libutil.a \
 	$(GLIB_LIBS)
 test_run_filter_SOURCES = test/run_filter.cxx \
@@ -1748,8 +1772,8 @@ test_run_encoder_LDADD = \
 	libconf.a \
 	libpcm.a \
 	libthread.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	libutil.a \
 	$(GLIB_LIBS)
 endif
@@ -1770,8 +1794,8 @@ test_test_vorbis_encoder_LDADD = $(MPD_LIBS) \
 	$(PCM_LIBS) \
 	$(TAG_LIBS) \
 	libconf.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	libutil.a \
 	$(GLIB_LIBS)
 endif
@@ -1796,6 +1820,7 @@ test_run_avahi_CPPFLAGS = $(AM_CPPFLAGS) \
 test_run_avahi_LDADD = \
 	libevent.a \
 	libsystem.a \
+	libutil.a \
 	$(GLIB_LIBS) \
 	$(AVAHI_LIBS)
 
@@ -1855,8 +1880,8 @@ test_read_mixer_LDADD = \
 	$(OUTPUT_LIBS) \
 	libconf.a \
 	libevent.a \
-	libsystem.a \
 	$(FS_LIBS) \
+	libsystem.a \
 	libutil.a \
 	$(GLIB_LIBS)
 test_read_mixer_SOURCES = test/read_mixer.cxx \
@@ -1928,6 +1953,7 @@ test_test_mixramp_SOURCES = \
 test_test_mixramp_CPPFLAGS = $(AM_CPPFLAGS) $(CPPUNIT_CFLAGS) -DCPPUNIT_HAVE_RTTI=0
 test_test_mixramp_CXXFLAGS = $(AM_CXXFLAGS) -Wno-error=deprecated-declarations
 test_test_mixramp_LDADD = \
+	libutil.a \
 	$(GLIB_LIBS) \
 	$(CPPUNIT_LIBS)
 
@@ -1970,6 +1996,7 @@ test_test_archive_CPPFLAGS = $(AM_CPPFLAGS) $(CPPUNIT_CFLAGS) -DCPPUNIT_HAVE_RTT
 test_test_archive_CXXFLAGS = $(AM_CXXFLAGS) -Wno-error=deprecated-declarations
 test_test_archive_LDADD = \
 	libarchive.a \
+	libutil.a \
 	$(GLIB_LIBS) \
 	$(CPPUNIT_LIBS)
 
