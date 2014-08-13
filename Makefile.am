@@ -329,7 +329,7 @@ src/win32/mpd_win32_rc.$(OBJEXT): src/win32/mpd_win32_rc.rc
 if HAVE_WINDOWS
 noinst_DATA = src/win32/mpd_win32_rc.rc
 
-src_mpd_DEPENDENCIES = src/win32/mpd_win32_rc.$(OBJEXT)
+EXTRA_src_mpd_DEPENDENCIES = src/win32/mpd_win32_rc.$(OBJEXT)
 src_mpd_LDFLAGS = -Wl,src/win32/mpd_win32_rc.$(OBJEXT)
 endif
 
@@ -1979,6 +1979,7 @@ test_test_pcm_SOURCES = \
 	test/test_pcm_format.cxx \
 	test/test_pcm_volume.cxx \
 	test/test_pcm_mix.cxx \
+	test/test_pcm_export.cxx \
 	test/test_pcm_all.hxx \
 	test/test_pcm_main.cxx
 test_test_pcm_CPPFLAGS = $(AM_CPPFLAGS) $(CPPUNIT_CFLAGS) -DCPPUNIT_HAVE_RTTI=0

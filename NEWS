@@ -8,6 +8,7 @@ ver 0.19 (not yet released)
   - "list" on album artist falls back to the artist tag
   - "list" and "count" allow grouping
   - new "search"/"find" filter "modified-since"
+  - close connection after syntax error
 * database
   - proxy: forward "idle" events
   - proxy: forward the "update" command
@@ -55,6 +56,8 @@ ver 0.19 (not yet released)
 * ARM NEON optimizations
 * install systemd unit for socket activation
 * Android port
+
+ver 0.18.13 (not yet released)
 
 ver 0.18.12 (2014/07/30)
 * database

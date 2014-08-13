@@ -39,15 +39,15 @@ struct Tag;
  * A chunk of music data.  Its format is defined by the
  * MusicPipe::Push() caller.
  */
-struct music_chunk {
+struct MusicChunk {
 	/** the next chunk in a linked list */
-	struct music_chunk *next;
+	MusicChunk *next;
 
 	/**
 	 * An optional chunk which should be mixed into this chunk.
 	 * This is used for cross-fading.
 	 */
-	struct music_chunk *other;
+	MusicChunk *other;
 
 	/**
 	 * The current mix ratio for cross-fading: 1.0 means play 100%
@@ -92,13 +92,13 @@ struct music_chunk {
 	AudioFormat audio_format;
 #endif
 
-	music_chunk()
+	MusicChunk()
 		:other(nullptr),
 		 length(0),
 		 tag(nullptr),
 		 replay_gain_serial(0) {}
 
-	~music_chunk();
+	~MusicChunk();
 
 	bool IsEmpty() const {
 		return length == 0 && tag == nullptr;
@@ -116,9 +116,9 @@ struct music_chunk {
 	/**
 	 * Prepares appending to the music chunk.  Returns a buffer
 	 * where you may write into.  After you are finished, call
-	 * music_chunk_expand().
+	 * Expand().
 	 *
-	 * @param chunk the music_chunk object
+	 * @param chunk the MusicChunk object
 	 * @param audio_format the audio format for the appended data;
 	 * must stay the same for the life cycle of this chunk
 	 * @param data_time the time within the song
@@ -132,9 +132,9 @@ struct music_chunk {
 
 	/**
 	 * Increases the length of the chunk after the caller has written to
-	 * the buffer returned by music_chunk_write().
+	 * the buffer returned by Write().
 	 *
-	 * @param chunk the music_chunk object
+	 * @param chunk the MusicChunk object
 	 * @param audio_format the audio format for the appended data; must
 	 * stay the same for the life cycle of this chunk
 	 * @param length the number of bytes which were appended
