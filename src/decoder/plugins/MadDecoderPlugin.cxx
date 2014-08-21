@@ -153,10 +153,10 @@ struct MadDecoder {
 	enum mp3_action DecodeNextFrame();
 
 	gcc_pure
-	InputStream::offset_type ThisFrameOffset() const;
+	offset_type ThisFrameOffset() const;
 
 	gcc_pure
-	InputStream::offset_type RestIncludingThisFrame() const;
+	offset_type RestIncludingThisFrame() const;
 
 	/**
 	 * Attempt to calulcate the length of the song from filesize
@@ -747,7 +747,7 @@ mp3_frame_duration(const struct mad_frame *frame)
 			       MAD_UNITS_MILLISECONDS) / 1000.0;
 }
 
-inline InputStream::offset_type
+inline offset_type
 MadDecoder::ThisFrameOffset() const
 {
 	auto offset = input_stream.GetOffset();
@@ -760,7 +760,7 @@ MadDecoder::ThisFrameOffset() const
 	return offset;
 }
 
-inline InputStream::offset_type
+inline offset_type
 MadDecoder::RestIncludingThisFrame() const
 {
 	return input_stream.GetSize() - ThisFrameOffset();
@@ -769,9 +769,9 @@ MadDecoder::RestIncludingThisFrame() const
 inline void
 MadDecoder::FileSizeToSongLength()
 {
-	InputStream::offset_type rest = RestIncludingThisFrame();
+	if (input_stream.KnownSize()) {
+		offset_type rest = RestIncludingThisFrame();
 
-	if (rest > 0) {
 		float frame_duration = mp3_frame_duration(&frame);
 
 		total_time = (rest * 8.0) / frame.header.bitrate;

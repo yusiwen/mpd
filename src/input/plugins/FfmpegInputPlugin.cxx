@@ -22,11 +22,12 @@
 
 #include "config.h"
 #include "FfmpegInputPlugin.hxx"
+#include "lib/ffmpeg/Domain.hxx"
+#include "lib/ffmpeg/Error.hxx"
 #include "../InputStream.hxx"
 #include "../InputPlugin.hxx"
 #include "util/StringUtil.hxx"
 #include "util/Error.hxx"
-#include "util/Domain.hxx"
 
 extern "C" {
 #include <libavformat/avio.h>
@@ -62,8 +63,6 @@ struct FfmpegInputStream final : public InputStream {
 	size_t Read(void *ptr, size_t size, Error &error) override;
 	bool Seek(offset_type offset, Error &error) override;
 };
-
-static constexpr Domain ffmpeg_domain("ffmpeg");
 
 static inline bool
 input_ffmpeg_supported(void)
@@ -101,10 +100,9 @@ input_ffmpeg_open(const char *uri,
 		return nullptr;
 
 	AVIOContext *h;
-	int ret = avio_open(&h, uri, AVIO_FLAG_READ);
-	if (ret != 0) {
-		error.Set(ffmpeg_domain, ret,
-			  "libavformat failed to open the URI");
+	auto result = avio_open(&h, uri, AVIO_FLAG_READ);
+	if (result != 0) {
+		SetFfmpegError(error, result);
 		return nullptr;
 	}
 
@@ -114,17 +112,17 @@ input_ffmpeg_open(const char *uri,
 size_t
 FfmpegInputStream::Read(void *ptr, size_t read_size, Error &error)
 {
-	int ret = avio_read(h, (unsigned char *)ptr, read_size);
-	if (ret <= 0) {
-		if (ret < 0)
-			error.Set(ffmpeg_domain, "avio_read() failed");
+	auto result = avio_read(h, (unsigned char *)ptr, read_size);
+	if (result <= 0) {
+		if (result < 0)
+			SetFfmpegError(error, result, "avio_read() failed");
 
 		eof = true;
 		return false;
 	}
 
-	offset += ret;
-	return (size_t)ret;
+	offset += result;
+	return (size_t)result;
 }
 
 bool
@@ -136,15 +134,16 @@ FfmpegInputStream::IsEOF()
 bool
 FfmpegInputStream::Seek(offset_type new_offset, Error &error)
 {
-	int64_t ret = avio_seek(h, new_offset, SEEK_SET);
+	auto result = avio_seek(h, new_offset, SEEK_SET);
 
-	if (ret >= 0) {
-		eof = false;
-		return true;
-	} else {
-		error.Set(ffmpeg_domain, "avio_seek() failed");
+	if (result < 0) {
+		SetFfmpegError(error, result, "avio_seek() failed");
 		return false;
 	}
+
+	offset = result;
+	eof = false;
+	return true;
 }
 
 const InputPlugin input_plugin_ffmpeg = {

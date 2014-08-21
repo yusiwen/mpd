@@ -20,7 +20,7 @@
 #include "config.h"
 #include "InputStream.hxx"
 #include "thread/Cond.hxx"
-#include "util/UriUtil.hxx"
+#include "util/StringUtil.hxx"
 
 #include <assert.h>
 
@@ -67,10 +67,23 @@ InputStream::LockWaitReady()
 	WaitReady();
 }
 
+/**
+ * Is seeking on resources behind this URI "expensive"?  For example,
+ * seeking in a HTTP file requires opening a new connection with a new
+ * HTTP request.
+ */
+gcc_pure
+static bool
+ExpensiveSeeking(const char *uri)
+{
+	return StringStartsWith(uri, "http://") ||
+		StringStartsWith(uri, "https://");
+}
+
 bool
 InputStream::CheapSeeking() const
 {
-	return IsSeekable() && !uri_has_scheme(uri.c_str());
+	return IsSeekable() && !ExpensiveSeeking(uri.c_str());
 }
 
 bool

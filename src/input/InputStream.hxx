@@ -21,6 +21,7 @@
 #define MPD_INPUT_STREAM_HXX
 
 #include "check.h"
+#include "Offset.hxx"
 #include "thread/Mutex.hxx"
 #include "Compiler.h"
 
@@ -35,7 +36,7 @@ struct Tag;
 
 class InputStream {
 public:
-	typedef int64_t offset_type;
+	typedef ::offset_type offset_type;
 
 private:
 	/**
@@ -76,8 +77,10 @@ protected:
 	 */
 	bool seekable;
 
+	static constexpr offset_type UNKNOWN_SIZE = -1;
+
 	/**
-	 * the size of the resource, or -1 if unknown
+	 * the size of the resource, or #UNKNOWN_SIZE if unknown
 	 */
 	offset_type size;
 
@@ -97,7 +100,7 @@ public:
 		:uri(_uri),
 		 mutex(_mutex), cond(_cond),
 		 ready(false), seekable(false),
-		 size(-1), offset(0) {
+		 size(UNKNOWN_SIZE), offset(0) {
 		assert(_uri != nullptr);
 	}
 
@@ -221,20 +224,19 @@ public:
 	bool KnownSize() const {
 		assert(ready);
 
-		return size >= 0;
+		return size != UNKNOWN_SIZE;
 	}
 
 	gcc_pure
 	offset_type GetSize() const {
 		assert(ready);
+		assert(KnownSize());
 
 		return size;
 	}
 
 	void AddOffset(offset_type delta) {
 		assert(ready);
-		assert(offset >= 0);
-		assert(delta >= 0);
 
 		offset += delta;
 	}
@@ -249,8 +251,7 @@ public:
 	gcc_pure
 	offset_type GetRest() const {
 		assert(ready);
-		assert(size >= 0);
-		assert(offset >= 0);
+		assert(KnownSize());
 
 		return size - offset;
 	}

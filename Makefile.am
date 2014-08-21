@@ -776,6 +776,16 @@ libtag_a_SOURCES += \
 	src/tag/Aiff.cxx src/tag/Aiff.hxx
 endif
 
+# ffmpeg
+
+if HAVE_FFMPEG
+noinst_LIBRARIES += libffmpeg.a
+libffmpeg_a_SOURCES = \
+	src/lib/ffmpeg/Error.cxx src/lib/ffmpeg/Error.hxx \
+	src/lib/ffmpeg/Domain.cxx src/lib/ffmpeg/Domain.hxx
+FFMPEG_LIBS2 = libffmpeg.a $(FFMPEG_LIBS)
+endif
+
 # decoder plugins
 
 libdecoder_a_SOURCES = \
@@ -825,7 +835,7 @@ DECODER_LIBS = \
 	$(MPG123_LIBS) \
 	$(MP4V2_LIBS) \
 	$(OPUS_LIBS) \
-	$(FFMPEG_LIBS) \
+	$(FFMPEG_LIBS2) \
 	$(MPCDEC_LIBS) \
 	$(ADPLUG_LIBS) \
 	$(FAAD_LIBS)
@@ -1080,6 +1090,7 @@ libinput_a_SOURCES = \
 	src/input/Init.cxx src/input/Init.hxx \
 	src/input/Registry.cxx src/input/Registry.hxx \
 	src/input/Open.cxx \
+	src/input/Offset.hxx \
 	src/input/InputStream.cxx src/input/InputStream.hxx \
 	src/input/InputPlugin.hxx \
 	src/input/TextInputStream.cxx src/input/TextInputStream.hxx \
@@ -1104,7 +1115,7 @@ INPUT_LIBS = \
 	$(SMBCLIENT_LIBS) \
 	$(NFS_LIBS) \
 	$(CDIO_PARANOIA_LIBS) \
-	$(FFMPEG_LIBS) \
+	$(FFMPEG_LIBS2) \
 	$(DESPOTIFY_LIBS) \
 	$(MMS_LIBS)
 

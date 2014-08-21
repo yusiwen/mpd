@@ -112,8 +112,7 @@ adts_song_duration(DecoderBuffer *buffer)
 {
 	const InputStream &is = decoder_buffer_get_stream(buffer);
 	const bool estimate = !is.CheapSeeking();
-	const auto file_size = is.GetSize();
-	if (estimate && file_size <= 0)
+	if (estimate && !is.KnownSize())
 		return -1;
 
 	unsigned sample_rate = 0;
@@ -149,6 +148,7 @@ adts_song_duration(DecoderBuffer *buffer)
 			if (offset <= 0)
 				return -1;
 
+			const auto file_size = is.GetSize();
 			frames = (frames * file_size) / offset;
 			break;
 		}
@@ -166,9 +166,6 @@ adts_song_duration(DecoderBuffer *buffer)
 static float
 faad_song_duration(DecoderBuffer *buffer, InputStream &is)
 {
-	const auto size = is.GetSize();
-	const size_t fileread = size >= 0 ? size : 0;
-
 	auto data = ConstBuffer<uint8_t>::FromVoid(decoder_buffer_need(buffer, 5));
 	if (data.IsNull())
 		return -1;
@@ -205,6 +202,10 @@ faad_song_duration(DecoderBuffer *buffer, InputStream &is)
 		return song_length;
 	} else if (data.size >= 5 && memcmp(data.data, "ADIF", 4) == 0) {
 		/* obtain the duration from the ADIF header */
+
+		if (!is.KnownSize())
+			return -1;
+
 		size_t skip_size = (data.data[4] & 0x80) ? 9 : 0;
 
 		if (8 + skip_size > data.size)
@@ -217,10 +218,11 @@ faad_song_duration(DecoderBuffer *buffer, InputStream &is)
 			(data.data[6 + skip_size] << 3) |
 			(data.data[7 + skip_size] & 0xE0);
 
-		if (fileread != 0 && bit_rate != 0)
-			return fileread * 8.0 / bit_rate;
+		const auto size = is.GetSize();
+		if (bit_rate != 0)
+			return size * 8.0 / bit_rate;
 		else
-			return fileread;
+			return size;
 	} else
 		return -1;
 }

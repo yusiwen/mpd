@@ -50,12 +50,12 @@ DsdId::Equals(const char *s) const
  */
 bool
 dsdlib_skip_to(Decoder *decoder, InputStream &is,
-	       uint64_t offset)
+	       offset_type offset)
 {
 	if (is.IsSeekable())
 		return is.Seek(offset, IgnoreError());
 
-	if (uint64_t(is.GetOffset()) > offset)
+	if (is.GetOffset() > offset)
 		return false;
 
 	return dsdlib_skip(decoder, is, offset - is.GetOffset());
@@ -66,7 +66,7 @@ dsdlib_skip_to(Decoder *decoder, InputStream &is,
  */
 bool
 dsdlib_skip(Decoder *decoder, InputStream &is,
-	    uint64_t delta)
+	    offset_type delta)
 {
 	if (delta == 0)
 		return true;
@@ -82,6 +82,25 @@ dsdlib_skip(Decoder *decoder, InputStream &is,
 	return decoder_skip(decoder, is, delta);
 }
 
+bool
+dsdlib_valid_freq(uint32_t samplefreq)
+{
+	switch (samplefreq) {
+	case 2822400: /* DSD64, 64xFs, Fs = 44.100kHz */
+	case 3072000: /* DSD64 with Fs = 48.000 kHz */
+	case 5644800:
+	case 6144000:
+	case 11289600:
+	case 12288000:
+	case 22579200:/* DSD512 */
+	case 24576000:
+		return true;
+
+	default:
+		return false;
+	}
+}
+
 #ifdef HAVE_ID3TAG
 void
 dsdlib_tag_id3(InputStream &is,
@@ -90,14 +109,11 @@ dsdlib_tag_id3(InputStream &is,
 {
 	assert(tagoffset >= 0);
 
-	if (tagoffset == 0)
+	if (tagoffset == 0 || !is.KnownSize())
 		return;
 
 	if (!dsdlib_skip_to(nullptr, is, tagoffset))
 		return;
-
-	struct id3_tag *id3_tag = nullptr;
-	id3_length_t count;
 
 	/* Prevent broken files causing problems */
 	const auto size = is.GetSize();
@@ -105,20 +121,17 @@ dsdlib_tag_id3(InputStream &is,
 	if (offset >= size)
 		return;
 
-	count = size - offset;
+	const id3_length_t count = size - offset;
 
 	/* Check and limit id3 tag size to prevent a stack overflow */
-	if (count == 0 || count > 4096)
+	id3_byte_t dsdid3[4096];
+	if (count == 0 || count > sizeof(dsdid3))
 		return;
 
-	id3_byte_t dsdid3[count];
-	id3_byte_t *dsdid3data;
-	dsdid3data = dsdid3;
-
-	if (!decoder_read_full(nullptr, is, dsdid3data, count))
+	if (!decoder_read_full(nullptr, is, dsdid3, count))
 		return;
 
-	id3_tag = id3_tag_parse(dsdid3data, count);
+	struct id3_tag *id3_tag = id3_tag_parse(dsdid3, count);
 	if (id3_tag == nullptr)
 		return;
 

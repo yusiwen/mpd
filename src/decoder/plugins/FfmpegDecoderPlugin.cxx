@@ -22,6 +22,7 @@
 
 #include "config.h"
 #include "FfmpegDecoderPlugin.hxx"
+#include "lib/ffmpeg/Domain.hxx"
 #include "../DecoderAPI.hxx"
 #include "FfmpegMetaData.hxx"
 #include "tag/TagHandler.hxx"
@@ -46,8 +47,6 @@ extern "C" {
 
 #include <assert.h>
 #include <string.h>
-
-static constexpr Domain ffmpeg_domain("ffmpeg");
 
 /* suppress the ffmpeg compatibility macro */
 #ifdef SampleFormat
@@ -136,6 +135,9 @@ mpd_ffmpeg_stream_seek(void *opaque, int64_t pos, int whence)
 		break;
 
 	case AVSEEK_SIZE:
+		if (!stream->input.KnownSize())
+			return -1;
+
 		return stream->input.GetSize();
 
 	default:
@@ -452,9 +454,18 @@ ffmpeg_decode(Decoder &decoder, InputStream &input)
 	AVStream *av_stream = format_context->streams[audio_stream];
 
 	AVCodecContext *codec_context = av_stream->codec;
+
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(54, 25, 0)
+	const AVCodecDescriptor *codec_descriptor =
+		avcodec_descriptor_get(codec_context->codec_id);
+	if (codec_descriptor != nullptr)
+		FormatDebug(ffmpeg_domain, "codec '%s'",
+			    codec_descriptor->name);
+#else
 	if (codec_context->codec_name[0] != 0)
 		FormatDebug(ffmpeg_domain, "codec '%s'",
 			    codec_context->codec_name);
+#endif
 
 	AVCodec *codec = avcodec_find_decoder(codec_context->codec_id);
 

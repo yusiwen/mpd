@@ -114,7 +114,7 @@ audiofile_file_seek(AFvirtualfile *vfile, AFfileoffset _offset,
 	AudioFileInputStream &afis = *(AudioFileInputStream *)vfile->closure;
 	InputStream &is = afis.is;
 
-	InputStream::offset_type offset = _offset;
+	offset_type offset = _offset;
 	if (is_relative)
 		offset += is.GetOffset();
 
@@ -184,7 +184,7 @@ audiofile_setup_sample_format(AFfilehandle af_fp)
 static void
 audiofile_stream_decode(Decoder &decoder, InputStream &is)
 {
-	if (!is.IsSeekable()) {
+	if (!is.IsSeekable() || !is.KnownSize()) {
 		LogWarning(audiofile_domain, "not seekable");
 		return;
 	}
@@ -250,7 +250,7 @@ gcc_pure
 static int
 audiofile_get_duration(InputStream &is)
 {
-	if (!is.IsSeekable())
+	if (!is.IsSeekable() || !is.KnownSize())
 		return -1;
 
 	AudioFileInputStream afis{nullptr, is};

@@ -30,6 +30,8 @@ ver 0.19 (not yet released)
 * input
   - alsa: new input plugin
   - curl: options "verify_peer" and "verify_host"
+  - ffmpeg: update offset after seeking
+  - ffmpeg: improved error messages
   - mms: non-blocking I/O
   - nfs: new input plugin
   - smbclient: new input plugin
@@ -39,6 +41,8 @@ ver 0.19 (not yet released)
   - vorbis, flac, opus: honor DESCRIPTION= tag in Xiph-based files as a comment to the song
   - audiofile: support scanning remote files
   - audiofile: log libaudiofile errors
+  - dsdiff, dsf: report bit rate
+  - dsf: support DSD512
   - sndfile: support scanning remote files
   - sndfile: support tags "comment", "album", "track", "genre"
   - mp4v2: support playback of MP4 files.
@@ -58,6 +62,8 @@ ver 0.19 (not yet released)
 * Android port
 
 ver 0.18.13 (not yet released)
+* decoder
+  - ffmpeg: support ffmpeg/libav version 11
 
 ver 0.18.12 (2014/07/30)
 * database

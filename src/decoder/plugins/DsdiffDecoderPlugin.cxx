@@ -66,7 +66,7 @@ struct dsdiff_native_tag {
 struct DsdiffMetaData {
 	unsigned sample_rate, channels;
 	bool bitreverse;
-	uint64_t chunk_size;
+	offset_type chunk_size;
 };
 
 static bool lsbitfirst;
@@ -110,14 +110,14 @@ dsdiff_read_payload(Decoder *decoder, InputStream &is,
 static bool
 dsdiff_read_prop_snd(Decoder *decoder, InputStream &is,
 		     DsdiffMetaData *metadata,
-		     InputStream::offset_type end_offset)
+		     offset_type end_offset)
 {
 	DsdiffChunkHeader header;
-	while ((InputStream::offset_type)(is.GetOffset() + sizeof(header)) <= end_offset) {
+	while (is.GetOffset() + sizeof(header) <= end_offset) {
 		if (!dsdiff_read_chunk_header(decoder, is, &header))
 			return false;
 
-		InputStream::offset_type chunk_end_offset = is.GetOffset()
+		offset_type chunk_end_offset = is.GetOffset()
 			+ header.GetSize();
 		if (chunk_end_offset > end_offset)
 			return false;
@@ -171,7 +171,7 @@ dsdiff_read_prop(Decoder *decoder, InputStream &is,
 		 const DsdiffChunkHeader *prop_header)
 {
 	uint64_t prop_size = prop_header->GetSize();
-	InputStream::offset_type end_offset = is.GetOffset() + prop_size;
+	const offset_type end_offset = is.GetOffset() + prop_size;
 
 	DsdId prop_id;
 	if (prop_size < sizeof(prop_id) ||
@@ -188,7 +188,7 @@ dsdiff_read_prop(Decoder *decoder, InputStream &is,
 static void
 dsdiff_handle_native_tag(InputStream &is,
 			 const struct tag_handler *handler,
-			 void *handler_ctx, InputStream::offset_type tagoffset,
+			 void *handler_ctx, offset_type tagoffset,
 			 TagType type)
 {
 	if (!dsdlib_skip_to(nullptr, is, tagoffset))
@@ -240,19 +240,19 @@ dsdiff_read_metadata_extra(Decoder *decoder, InputStream &is,
 		return false;
 
 	/** offset for artist tag */
-	InputStream::offset_type artist_offset = 0;
+	offset_type artist_offset = 0;
 	/** offset for title tag */
-	InputStream::offset_type title_offset = 0;
+	offset_type title_offset = 0;
 
 #ifdef HAVE_ID3TAG
-	InputStream::offset_type id3_offset = 0;
+	offset_type id3_offset = 0;
 #endif
 
 	/* Now process all the remaining chunk headers in the stream
 	   and record their position and size */
 
 	do {
-		uint64_t chunk_size = chunk_header->GetSize();
+		offset_type chunk_size = chunk_header->GetSize();
 
 		/* DIIN chunk, is directly followed by other chunks  */
 		if (chunk_header->id.Equals("DIIN"))
@@ -328,13 +328,13 @@ dsdiff_read_metadata(Decoder *decoder, InputStream &is,
 					      chunk_header))
 					return false;
 		} else if (chunk_header->id.Equals("DSD ")) {
-			const uint64_t chunk_size = chunk_header->GetSize();
+			const offset_type chunk_size = chunk_header->GetSize();
 			metadata->chunk_size = chunk_size;
 			return true;
 		} else {
 			/* ignore unknown chunk */
-			const uint64_t chunk_size = chunk_header->GetSize();
-			InputStream::offset_type chunk_end_offset =
+			const offset_type chunk_size = chunk_header->GetSize();
+			const offset_type chunk_end_offset =
 				is.GetOffset() + chunk_size;
 
 			if (!dsdlib_skip_to(decoder, is, chunk_end_offset))
@@ -355,8 +355,8 @@ bit_reverse_buffer(uint8_t *p, uint8_t *end)
  */
 static bool
 dsdiff_decode_chunk(Decoder &decoder, InputStream &is,
-		    unsigned channels,
-		    uint64_t chunk_size)
+		    unsigned channels, unsigned sample_rate,
+		    offset_type chunk_size)
 {
 	uint8_t buffer[8192];
 
@@ -370,9 +370,8 @@ dsdiff_decode_chunk(Decoder &decoder, InputStream &is,
 		/* see how much aligned data from the remaining chunk
 		   fits into the local buffer */
 		size_t now_size = buffer_size;
-		if (chunk_size < (uint64_t)now_size) {
-			unsigned now_frames =
-				(unsigned)chunk_size / frame_size;
+		if (chunk_size < (offset_type)now_size) {
+			unsigned now_frames = chunk_size / frame_size;
 			now_size = now_frames * frame_size;
 		}
 
@@ -385,7 +384,8 @@ dsdiff_decode_chunk(Decoder &decoder, InputStream &is,
 		if (lsbitfirst)
 			bit_reverse_buffer(buffer, buffer + nbytes);
 
-		const auto cmd = decoder_data(decoder, is, buffer, nbytes, 0);
+		const auto cmd = decoder_data(decoder, is, buffer, nbytes,
+					      sample_rate / 1000);
 		switch (cmd) {
 		case DecoderCommand::NONE:
 			break;
@@ -424,7 +424,7 @@ dsdiff_stream_decode(Decoder &decoder, InputStream &is)
 	}
 
 	/* calculate song time from DSD chunk size and sample frequency */
-	uint64_t chunk_size = metadata.chunk_size;
+	offset_type chunk_size = metadata.chunk_size;
 	float songtime = ((chunk_size / metadata.channels) * 8) /
 			 (float) metadata.sample_rate;
 
@@ -440,6 +440,7 @@ dsdiff_stream_decode(Decoder &decoder, InputStream &is)
 		if (chunk_header.id.Equals("DSD ")) {
 			if (!dsdiff_decode_chunk(decoder, is,
 						 metadata.channels,
+						 metadata.sample_rate,
 						 chunk_size))
 					break;
 		} else {

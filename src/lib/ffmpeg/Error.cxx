@@ -17,29 +17,27 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-/* \file
- *
- * The player thread controls the playback.  It acts as a bridge
- * between the decoder thread and the output thread(s): it receives
- * #MusicChunk objects from the decoder, optionally mixes them
- * (cross-fading), applies software volume, and sends them to the
- * audio outputs via audio_output_all_play().
- *
- * It is controlled by the main thread (the playlist code), see
- * PlayerControl.hxx.  The playlist enqueues new songs into the player
- * thread and sends it commands.
- *
- * The player thread itself does not do any I/O.  It synchronizes with
- * other threads via #GMutex and #GCond objects, and passes
- * #MusicChunk instances around in #MusicPipe objects.
- */
+#include "config.h"
+#include "Error.hxx"
+#include "Domain.hxx"
+#include "util/Error.hxx"
 
-#ifndef MPD_PLAYER_THREAD_HXX
-#define MPD_PLAYER_THREAD_HXX
-
-struct PlayerControl;
+extern "C" {
+#include <libavutil/error.h>
+}
 
 void
-StartPlayerThread(PlayerControl &pc);
+SetFfmpegError(Error &error, int errnum)
+{
+	char msg[256];
+	av_strerror(errnum, msg, sizeof(msg));
+	error.Set(ffmpeg_domain, errnum, msg);
+}
 
-#endif
+void
+SetFfmpegError(Error &error, int errnum, const char *prefix)
+{
+	char msg[256];
+	av_strerror(errnum, msg, sizeof(msg));
+	error.Format(ffmpeg_domain, errnum, "%s: %s", prefix, msg);
+}

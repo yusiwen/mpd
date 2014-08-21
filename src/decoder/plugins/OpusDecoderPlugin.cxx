@@ -187,8 +187,6 @@ LoadEOSPacket(InputStream &is, Decoder *decoder, int serialno,
 		return -1;
 
 	const auto old_offset = is.GetOffset();
-	if (old_offset < 0)
-		return -1;
 
 	/* create temporary Ogg objects for seeking and parsing the
 	   EOS packet */
@@ -335,15 +333,14 @@ MPDOpusDecoder::Seek(OggSyncState &oy, double where_s)
 	assert(eos_granulepos > 0);
 	assert(input_stream.IsSeekable());
 	assert(input_stream.KnownSize());
-	assert(input_stream.GetOffset() >= 0);
 
 	const ogg_int64_t where_granulepos(where_s * opus_sample_rate);
 
 	/* interpolate the file offset where we expect to find the
 	   given granule position */
 	/* TODO: implement binary search */
-	InputStream::offset_type offset(where_granulepos * input_stream.GetSize()
-					/ eos_granulepos);
+	offset_type offset(where_granulepos * input_stream.GetSize()
+			   / eos_granulepos);
 
 	if (!OggSeekPageAtOffset(oy, os, input_stream, offset))
 		return false;

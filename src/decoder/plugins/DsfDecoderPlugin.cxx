@@ -42,10 +42,9 @@
 struct DsfMetaData {
 	unsigned sample_rate, channels;
 	bool bitreverse;
-	uint64_t chunk_size;
+	offset_type chunk_size;
 #ifdef HAVE_ID3TAG
-	InputStream::offset_type id3_offset;
-	uint64_t id3_size;
+	offset_type id3_offset;
 #endif
 };
 
@@ -104,12 +103,12 @@ dsf_read_metadata(Decoder *decoder, InputStream &is,
 	    !dsf_header.id.Equals("DSD "))
 		return false;
 
-	const uint64_t chunk_size = dsf_header.size.Read();
+	const offset_type chunk_size = dsf_header.size.Read();
 	if (sizeof(dsf_header) != chunk_size)
 		return false;
 
 #ifdef HAVE_ID3TAG
-	const uint64_t metadata_offset = dsf_header.pmeta.Read();
+	const offset_type metadata_offset = dsf_header.pmeta.Read();
 #endif
 
 	/* read the 'fmt ' chunk of the DSF file */
@@ -131,7 +130,7 @@ dsf_read_metadata(Decoder *decoder, InputStream &is,
 	if (dsf_fmt_chunk.version != 1 || dsf_fmt_chunk.formatid != 0
 	    || dsf_fmt_chunk.channeltype != 2
 	    || dsf_fmt_chunk.channelnum != 2
-	    || (samplefreq != 2822400 && samplefreq != 5644800))
+	    || (!dsdlib_valid_freq(samplefreq)))
 		return false;
 
 	uint32_t chblksize = FromLE32(dsf_fmt_chunk.block_size);
@@ -148,22 +147,24 @@ dsf_read_metadata(Decoder *decoder, InputStream &is,
 	/* data size of DSF files are padded to multiple of 4096,
 	   we use the actual data size as chunk size */
 
-	uint64_t data_size = data_chunk.size.Read();
+	offset_type data_size = data_chunk.size.Read();
 	if (data_size < sizeof(data_chunk))
 		return false;
 
 	data_size -= sizeof(data_chunk);
 
 	/* data_size cannot be bigger or equal to total file size */
-	const uint64_t size = (uint64_t)is.GetSize();
-	if (data_size >= size)
-		return false;
+	if (is.KnownSize()) {
+		const offset_type size = is.GetSize();
+		if (data_size >= size)
+			return false;
+	}
 
 	/* use the sample count from the DSF header as the upper
 	   bound, because some DSF files contain junk at the end of
 	   the "data" chunk */
 	const uint64_t samplecnt = dsf_fmt_chunk.scnt.Read();
-	const uint64_t playable_size = samplecnt * 2 / 8;
+	const offset_type playable_size = samplecnt * 2 / 8;
 	if (data_size > playable_size)
 		data_size = playable_size;
 
@@ -171,11 +172,7 @@ dsf_read_metadata(Decoder *decoder, InputStream &is,
 	metadata->channels = (unsigned) dsf_fmt_chunk.channelnum;
 	metadata->sample_rate = samplefreq;
 #ifdef HAVE_ID3TAG
-	/* metada_offset cannot be bigger then or equal to total file size */
-	if (metadata_offset >= size)
-		metadata->id3_offset = 0;
-	else
-		metadata->id3_offset = (InputStream::offset_type)metadata_offset;
+	metadata->id3_offset = metadata_offset;
 #endif
 	/* check bits per sample format, determine if bitreverse is needed */
 	metadata->bitreverse = dsf_fmt_chunk.bitssample == 1;
@@ -219,9 +216,9 @@ dsf_to_pcm_order(uint8_t *dest, uint8_t *scratch, size_t nrbytes)
  */
 static bool
 dsf_decode_chunk(Decoder &decoder, InputStream &is,
-		    unsigned channels,
-		    uint64_t chunk_size,
-		    bool bitreverse)
+		 unsigned channels, unsigned sample_rate,
+		 offset_type chunk_size,
+		 bool bitreverse)
 {
 	uint8_t buffer[8192];
 
@@ -239,9 +236,8 @@ dsf_decode_chunk(Decoder &decoder, InputStream &is,
 		/* see how much aligned data from the remaining chunk
 		   fits into the local buffer */
 		size_t now_size = buffer_size;
-		if (chunk_size < (uint64_t)now_size) {
-			unsigned now_frames =
-				(unsigned)chunk_size / frame_size;
+		if (chunk_size < now_size) {
+			unsigned now_frames = chunk_size / frame_size;
 			now_size = now_frames * frame_size;
 		}
 
@@ -256,7 +252,8 @@ dsf_decode_chunk(Decoder &decoder, InputStream &is,
 
 		dsf_to_pcm_order(buffer, dsf_scratch_buffer, nbytes);
 
-		const auto cmd = decoder_data(decoder, is, buffer, nbytes, 0);
+		const auto cmd = decoder_data(decoder, is, buffer, nbytes,
+					      sample_rate / 1000);
 		switch (cmd) {
 		case DecoderCommand::NONE:
 			break;
@@ -292,7 +289,7 @@ dsf_stream_decode(Decoder &decoder, InputStream &is)
 		return;
 	}
 	/* Calculate song time from DSD chunk size and sample frequency */
-	uint64_t chunk_size = metadata.chunk_size;
+	offset_type chunk_size = metadata.chunk_size;
 	float songtime = ((chunk_size / metadata.channels) * 8) /
 			 (float) metadata.sample_rate;
 
@@ -300,6 +297,7 @@ dsf_stream_decode(Decoder &decoder, InputStream &is)
 	decoder_initialized(decoder, audio_format, false, songtime);
 
 	if (!dsf_decode_chunk(decoder, is, metadata.channels,
+			      metadata.sample_rate,
 			      chunk_size,
 			      metadata.bitreverse))
 		return;

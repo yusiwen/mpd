@@ -17,41 +17,15 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_OGG_FIND_HXX
-#define MPD_OGG_FIND_HXX
+#ifndef MPD_FFMPEG_ERROR_HXX
+#define MPD_FFMPEG_ERROR_HXX
 
-#include "check.h"
-#include "input/Offset.hxx"
+class Error;
 
-#include <ogg/ogg.h>
+void
+SetFfmpegError(Error &error, int errnum);
 
-class OggSyncState;
-class InputStream;
-
-/**
- * Skip all pages/packets until an end-of-stream (EOS) packet for the
- * specified stream is found.
- *
- * @return true if the EOS packet was found
- */
-bool
-OggFindEOS(OggSyncState &oy, ogg_stream_state &os, ogg_packet &packet);
-
-/**
- * Seek the #InputStream and find the next Ogg page.
- */
-bool
-OggSeekPageAtOffset(OggSyncState &oy, ogg_stream_state &os, InputStream &is,
-		    offset_type offset);
-
-/**
- * Try to find the end-of-stream (EOS) packet.  Seek to the end of the
- * file if necessary.
- *
- * @return true if the EOS packet was found
- */
-bool
-OggSeekFindEOS(OggSyncState &oy, ogg_stream_state &os, ogg_packet &packet,
-	       InputStream &is);
+void
+SetFfmpegError(Error &error, int errnum, const char *prefix);
 
 #endif
