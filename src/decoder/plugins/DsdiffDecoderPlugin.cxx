@@ -350,28 +350,60 @@ bit_reverse_buffer(uint8_t *p, uint8_t *end)
 		*p = bit_reverse(*p);
 }
 
+static offset_type
+TimeToFrame(double t, unsigned sample_rate)
+{
+	return offset_type(t * sample_rate / 8);
+}
+
+static offset_type
+TimeToOffset(double t, unsigned channels, unsigned sample_rate)
+{
+	return TimeToFrame(t, sample_rate) * channels;
+}
+
 /**
  * Decode one "DSD" chunk.
  */
 static bool
 dsdiff_decode_chunk(Decoder &decoder, InputStream &is,
 		    unsigned channels, unsigned sample_rate,
-		    offset_type chunk_size)
+		    const offset_type total_bytes)
 {
+	const offset_type start_offset = is.GetOffset();
+
 	uint8_t buffer[8192];
 
 	const size_t sample_size = sizeof(buffer[0]);
 	const size_t frame_size = channels * sample_size;
 	const unsigned buffer_frames = sizeof(buffer) / frame_size;
-	const unsigned buffer_samples = buffer_frames * frame_size;
-	const size_t buffer_size = buffer_samples * sample_size;
+	const size_t buffer_size = buffer_frames * frame_size;
 
-	while (chunk_size > 0) {
+	auto cmd = decoder_get_command(decoder);
+	for (offset_type remaining_bytes = total_bytes;
+	     remaining_bytes >= frame_size && cmd != DecoderCommand::STOP;) {
+		if (cmd == DecoderCommand::SEEK) {
+			double t = decoder_seek_where(decoder);
+			offset_type offset = TimeToOffset(t, channels,
+							  sample_rate);
+			if (offset >= total_bytes) {
+				decoder_command_finished(decoder);
+				break;
+			}
+
+			if (dsdlib_skip_to(&decoder, is,
+					   start_offset + offset)) {
+				decoder_command_finished(decoder);
+				remaining_bytes = total_bytes - offset;
+			} else
+				decoder_seek_error(decoder);
+		}
+
 		/* see how much aligned data from the remaining chunk
 		   fits into the local buffer */
 		size_t now_size = buffer_size;
-		if (chunk_size < (offset_type)now_size) {
-			unsigned now_frames = chunk_size / frame_size;
+		if (remaining_bytes < (offset_type)now_size) {
+			unsigned now_frames = remaining_bytes / frame_size;
 			now_size = now_frames * frame_size;
 		}
 
@@ -379,29 +411,16 @@ dsdiff_decode_chunk(Decoder &decoder, InputStream &is,
 			return false;
 
 		const size_t nbytes = now_size;
-		chunk_size -= nbytes;
+		remaining_bytes -= nbytes;
 
 		if (lsbitfirst)
 			bit_reverse_buffer(buffer, buffer + nbytes);
 
-		const auto cmd = decoder_data(decoder, is, buffer, nbytes,
-					      sample_rate / 1000);
-		switch (cmd) {
-		case DecoderCommand::NONE:
-			break;
-
-		case DecoderCommand::START:
-		case DecoderCommand::STOP:
-			return false;
-
-		case DecoderCommand::SEEK:
-
-			/* Not implemented yet */
-			decoder_seek_error(decoder);
-			break;
-		}
+		cmd = decoder_data(decoder, is, buffer, nbytes,
+				   sample_rate / 1000);
 	}
-	return dsdlib_skip(&decoder, is, chunk_size);
+
+	return true;
 }
 
 static void
@@ -429,32 +448,15 @@ dsdiff_stream_decode(Decoder &decoder, InputStream &is)
 			 (float) metadata.sample_rate;
 
 	/* success: file was recognized */
-	decoder_initialized(decoder, audio_format, false, songtime);
+	decoder_initialized(decoder, audio_format, is.IsSeekable(), songtime);
 
 	/* every iteration of the following loop decodes one "DSD"
 	   chunk from a DFF file */
 
-	while (true) {
-		chunk_size = chunk_header.GetSize();
-
-		if (chunk_header.id.Equals("DSD ")) {
-			if (!dsdiff_decode_chunk(decoder, is,
-						 metadata.channels,
-						 metadata.sample_rate,
-						 chunk_size))
-					break;
-		} else {
-			/* ignore other chunks */
-			if (!dsdlib_skip(&decoder, is, chunk_size))
-				break;
-		}
-
-		/* read next chunk header; the first one was read by
-		   dsdiff_read_metadata() */
-		if (!dsdiff_read_chunk_header(&decoder,
-					      is, &chunk_header))
-			break;
-	}
+	dsdiff_decode_chunk(decoder, is,
+			    metadata.channels,
+			    metadata.sample_rate,
+			    chunk_size);
 }
 
 static bool

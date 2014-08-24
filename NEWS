@@ -42,7 +42,11 @@ ver 0.19 (not yet released)
   - audiofile: support scanning remote files
   - audiofile: log libaudiofile errors
   - dsdiff, dsf: report bit rate
+  - dsdiff, dsf: implement seeking
   - dsf: support DSD512
+  - dsf: support multi-channel files
+  - dsf: fix big-endian bugs
+  - dsf: fix noise at end of malformed file
   - sndfile: support scanning remote files
   - sndfile: support tags "comment", "album", "track", "genre"
   - mp4v2: support playback of MP4 files.
@@ -63,6 +67,7 @@ ver 0.19 (not yet released)
 
 ver 0.18.13 (not yet released)
 * decoder
+  - dsdiff, dsf: fix endless loop on malformed file
   - ffmpeg: support ffmpeg/libav version 11
 
 ver 0.18.12 (2014/07/30)
