@@ -22,6 +22,7 @@
 #include "../OutputAPI.hxx"
 #include "mixer/MixerList.hxx"
 #include "pcm/PcmExport.hxx"
+#include "config/ConfigError.hxx"
 #include "util/Manual.hxx"
 #include "util/Error.hxx"
 #include "util/Domain.hxx"
@@ -32,14 +33,16 @@
 
 #include <string>
 
-#define ALSA_PCM_NEW_HW_PARAMS_API
-#define ALSA_PCM_NEW_SW_PARAMS_API
+#if SND_LIB_VERSION >= 0x1001c
+/* alsa-lib supports DSD since version 1.0.27.1 */
+#define HAVE_ALSA_DSD
+#endif
 
 static const char default_device[] = "default";
 
 static constexpr unsigned MPD_ALSA_BUFFER_TIME_US = 500000;
 
-#define MPD_ALSA_RETRY_NR 5
+static constexpr unsigned MPD_ALSA_RETRY_NR = 5;
 
 typedef snd_pcm_sframes_t alsa_writei_t(snd_pcm_t * pcm, const void *buffer,
 					snd_pcm_uframes_t size);
@@ -129,9 +132,7 @@ struct AlsaOutput {
 		 mode(0), writei(snd_pcm_writei) {
 	}
 
-	bool Init(const config_param &param, Error &error) {
-		return base.Configure(param, error);
-	}
+	bool Configure(const config_param &param, Error &error);
 };
 
 static constexpr Domain alsa_output_domain("alsa_output");
@@ -142,33 +143,38 @@ alsa_device(const AlsaOutput *ad)
 	return ad->device.empty() ? default_device : ad->device.c_str();
 }
 
-static void
-alsa_configure(AlsaOutput *ad, const config_param &param)
+inline bool
+AlsaOutput::Configure(const config_param &param, Error &error)
 {
-	ad->device = param.GetBlockValue("device", "");
+	if (!base.Configure(param, error))
+		return false;
 
-	ad->use_mmap = param.GetBlockValue("use_mmap", false);
+	device = param.GetBlockValue("device", "");
 
-	ad->dsd_usb = param.GetBlockValue("dsd_usb", false);
+	use_mmap = param.GetBlockValue("use_mmap", false);
 
-	ad->buffer_time = param.GetBlockValue("buffer_time",
+	dsd_usb = param.GetBlockValue("dsd_usb", false);
+
+	buffer_time = param.GetBlockValue("buffer_time",
 					      MPD_ALSA_BUFFER_TIME_US);
-	ad->period_time = param.GetBlockValue("period_time", 0u);
+	period_time = param.GetBlockValue("period_time", 0u);
 
 #ifdef SND_PCM_NO_AUTO_RESAMPLE
 	if (!param.GetBlockValue("auto_resample", true))
-		ad->mode |= SND_PCM_NO_AUTO_RESAMPLE;
+		mode |= SND_PCM_NO_AUTO_RESAMPLE;
 #endif
 
 #ifdef SND_PCM_NO_AUTO_CHANNELS
 	if (!param.GetBlockValue("auto_channels", true))
-		ad->mode |= SND_PCM_NO_AUTO_CHANNELS;
+		mode |= SND_PCM_NO_AUTO_CHANNELS;
 #endif
 
 #ifdef SND_PCM_NO_AUTO_FORMAT
 	if (!param.GetBlockValue("auto_format", true))
-		ad->mode |= SND_PCM_NO_AUTO_FORMAT;
+		mode |= SND_PCM_NO_AUTO_FORMAT;
 #endif
+
+	return true;
 }
 
 static AudioOutput *
@@ -176,12 +182,10 @@ alsa_init(const config_param &param, Error &error)
 {
 	AlsaOutput *ad = new AlsaOutput();
 
-	if (!ad->Init(param, error)) {
+	if (!ad->Configure(param, error)) {
 		delete ad;
 		return nullptr;
 	}
-
-	alsa_configure(ad, param);
 
 	return &ad->base;
 }
@@ -215,12 +219,12 @@ alsa_output_disable(AudioOutput *ao)
 }
 
 static bool
-alsa_test_default_device(void)
+alsa_test_default_device()
 {
 	snd_pcm_t *handle;
 
 	int ret = snd_pcm_open(&handle, default_device,
-	                       SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
+			       SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
 	if (ret) {
 		FormatError(alsa_output_domain,
 			    "Error opening default ALSA device: %s",
@@ -232,13 +236,24 @@ alsa_test_default_device(void)
 	return true;
 }
 
+/**
+ * Convert MPD's #SampleFormat enum to libasound's snd_pcm_format_t
+ * enum.  Returns SND_PCM_FORMAT_UNKNOWN if there is no according ALSA
+ * PCM format.
+ */
 static snd_pcm_format_t
 get_bitformat(SampleFormat sample_format)
 {
 	switch (sample_format) {
 	case SampleFormat::UNDEFINED:
-	case SampleFormat::DSD:
 		return SND_PCM_FORMAT_UNKNOWN;
+
+	case SampleFormat::DSD:
+#ifdef HAVE_ALSA_DSD
+		return SND_PCM_FORMAT_DSD_U8;
+#else
+		return SND_PCM_FORMAT_UNKNOWN;
+#endif
 
 	case SampleFormat::S8:
 		return SND_PCM_FORMAT_S8;
@@ -260,10 +275,14 @@ get_bitformat(SampleFormat sample_format)
 	gcc_unreachable();
 }
 
+/**
+ * Determine the byte-swapped PCM format.  Returns
+ * SND_PCM_FORMAT_UNKNOWN if the format cannot be byte-swapped.
+ */
 static snd_pcm_format_t
 byteswap_bitformat(snd_pcm_format_t fmt)
 {
-	switch(fmt) {
+	switch (fmt) {
 	case SND_PCM_FORMAT_S16_LE: return SND_PCM_FORMAT_S16_BE;
 	case SND_PCM_FORMAT_S24_LE: return SND_PCM_FORMAT_S24_BE;
 	case SND_PCM_FORMAT_S32_LE: return SND_PCM_FORMAT_S32_BE;
@@ -281,6 +300,10 @@ byteswap_bitformat(snd_pcm_format_t fmt)
 	}
 }
 
+/**
+ * Check if there is a "packed" version of the give PCM format.
+ * Returns SND_PCM_FORMAT_UNKNOWN if not.
+ */
 static snd_pcm_format_t
 alsa_to_packed_format(snd_pcm_format_t fmt)
 {
@@ -296,6 +319,10 @@ alsa_to_packed_format(snd_pcm_format_t fmt)
 	}
 }
 
+/**
+ * Attempts to configure the specified sample format.  On failure,
+ * fall back to the packed version.
+ */
 static int
 alsa_try_format_or_packed(snd_pcm_t *pcm, snd_pcm_hw_params_t *hwparams,
 			  snd_pcm_format_t fmt, bool *packed_r)
@@ -366,7 +393,7 @@ alsa_output_setup_format(snd_pcm_t *pcm, snd_pcm_hw_params_t *hwparams,
 
 	/* if unsupported by the hardware, try other formats */
 
-	static const SampleFormat probe_formats[] = {
+	static constexpr SampleFormat probe_formats[] = {
 		SampleFormat::S24_P32,
 		SampleFormat::S32,
 		SampleFormat::S16,

@@ -40,6 +40,8 @@
 
 // IWYU pragma: end_exports
 
+#include <stdint.h>
+
 class Error;
 
 /**
@@ -87,6 +89,26 @@ decoder_command_finished(Decoder &decoder);
 gcc_pure
 double
 decoder_seek_where(Decoder &decoder);
+
+/**
+ * Call this when you have received the DecoderCommand::SEEK command.
+ *
+ * @param decoder the decoder object
+ * @return the destination position for the seek in milliseconds
+ */
+gcc_pure
+unsigned
+decoder_seek_where_ms(Decoder &decoder);
+
+/**
+ * Call this when you have received the DecoderCommand::SEEK command.
+ *
+ * @param decoder the decoder object
+ * @return the destination position for the seek in frames
+ */
+gcc_pure
+uint64_t
+decoder_seek_where_frame(Decoder &decoder);
 
 /**
  * Call this instead of decoder_command_finished() when seeking has

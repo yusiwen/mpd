@@ -116,8 +116,8 @@ struct MadDecoder {
 	unsigned char input_buffer[READ_BUFFER_SIZE];
 	int32_t output_buffer[MP3_DATA_OUTPUT_BUFFER_SIZE];
 	float total_time;
-	float elapsed_time;
-	float seek_where;
+	unsigned elapsed_time;
+	unsigned seek_where;
 	enum muteframe mute_frame;
 	long *frame_offsets;
 	mad_timer_t *times;
@@ -159,7 +159,7 @@ struct MadDecoder {
 	bool DecodeFirstFrame(Tag **tag);
 
 	gcc_pure
-	long TimeToFrame(double t) const;
+	long TimeToFrame(unsigned t) const;
 
 	void UpdateTimerNextFrame();
 
@@ -410,6 +410,20 @@ id3_tag_query(const void *p0, size_t length)
 }
 #endif /* !HAVE_ID3TAG */
 
+static enum mp3_action
+RecoverFrameError(struct mad_stream &stream)
+{
+	if (MAD_RECOVERABLE(stream.error))
+		return DECODE_SKIP;
+	else if (stream.error == MAD_ERROR_BUFLEN)
+		return DECODE_CONT;
+
+	FormatWarning(mad_domain,
+		      "unrecoverable frame level error: %s",
+		      mad_stream_errorstr(&stream));
+	return DECODE_BREAK;
+}
+
 enum mp3_action
 MadDecoder::DecodeNextFrameHeader(Tag **tag)
 {
@@ -432,18 +446,8 @@ MadDecoder::DecodeNextFrameHeader(Tag **tag)
 				return DECODE_CONT;
 			}
 		}
-		if (MAD_RECOVERABLE(stream.error)) {
-			return DECODE_SKIP;
-		} else {
-			if (stream.error == MAD_ERROR_BUFLEN)
-				return DECODE_CONT;
-			else {
-				FormatWarning(mad_domain,
-					      "unrecoverable frame level error: %s",
-					      mad_stream_errorstr(&stream));
-				return DECODE_BREAK;
-			}
-		}
+
+		return RecoverFrameError(stream);
 	}
 
 	enum mad_layer new_layer = frame.header.layer;
@@ -479,18 +483,8 @@ MadDecoder::DecodeNextFrame()
 				return DECODE_CONT;
 			}
 		}
-		if (MAD_RECOVERABLE(stream.error)) {
-			return DECODE_SKIP;
-		} else {
-			if (stream.error == MAD_ERROR_BUFLEN)
-				return DECODE_CONT;
-			else {
-				FormatWarning(mad_domain,
-					      "unrecoverable frame level error: %s",
-					      mad_stream_errorstr(&stream));
-				return DECODE_BREAK;
-			}
-		}
+
+		return RecoverFrameError(stream);
 	}
 
 	return DECODE_OK;
@@ -853,14 +847,13 @@ mad_decoder_total_file_time(InputStream &is)
 }
 
 long
-MadDecoder::TimeToFrame(double t) const
+MadDecoder::TimeToFrame(unsigned t) const
 {
 	unsigned long i;
 
 	for (i = 0; i < highest_frame; ++i) {
-		double frame_time =
-			mad_timer_count(times[i],
-					MAD_UNITS_MILLISECONDS) / 1000.;
+		unsigned frame_time =
+			mad_timer_count(times[i], MAD_UNITS_MILLISECONDS);
 		if (frame_time >= t)
 			break;
 	}
@@ -891,7 +884,7 @@ MadDecoder::UpdateTimerNextFrame()
 		timer = times[current_frame];
 
 	current_frame++;
-	elapsed_time = mad_timer_count(timer, MAD_UNITS_MILLISECONDS) / 1000.0;
+	elapsed_time = mad_timer_count(timer, MAD_UNITS_MILLISECONDS);
 }
 
 DecoderCommand
@@ -978,8 +971,6 @@ MadDecoder::SyncAndSend()
 inline bool
 MadDecoder::Read()
 {
-	enum mp3_action ret;
-
 	UpdateTimerNextFrame();
 
 	switch (mute_frame) {
@@ -995,11 +986,10 @@ MadDecoder::Read()
 	case MUTEFRAME_NONE:
 		cmd = SyncAndSend();
 		if (cmd == DecoderCommand::SEEK) {
-			unsigned long j;
-
 			assert(input_stream.IsSeekable());
 
-			j = TimeToFrame(decoder_seek_where(*decoder));
+			unsigned long j =
+				TimeToFrame(decoder_seek_where_ms(*decoder));
 			if (j < highest_frame) {
 				if (Seek(frame_offsets[j])) {
 					current_frame = j;
@@ -1007,7 +997,7 @@ MadDecoder::Read()
 				} else
 					decoder_seek_error(*decoder);
 			} else {
-				seek_where = decoder_seek_where(*decoder);
+				seek_where = decoder_seek_where_ms(*decoder);
 				mute_frame = MUTEFRAME_SEEK;
 				decoder_command_finished(*decoder);
 			}
@@ -1016,8 +1006,7 @@ MadDecoder::Read()
 	}
 
 	while (true) {
-		bool skip = false;
-
+		enum mp3_action ret;
 		do {
 			Tag *tag = nullptr;
 
@@ -1031,8 +1020,8 @@ MadDecoder::Read()
 		} while (ret == DECODE_CONT);
 		if (ret == DECODE_BREAK)
 			return false;
-		else if (ret == DECODE_SKIP)
-			skip = true;
+
+		const bool skip = ret == DECODE_SKIP;
 
 		if (mute_frame == MUTEFRAME_NONE) {
 			do {
@@ -1043,10 +1032,8 @@ MadDecoder::Read()
 		}
 
 		if (!skip && ret == DECODE_OK)
-			break;
+			return true;
 	}
-
-	return ret != DECODE_BREAK;
 }
 
 static void

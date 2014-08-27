@@ -61,6 +61,18 @@ decoder_seek_where(gcc_unused Decoder &decoder)
 	return 1.0;
 }
 
+unsigned
+decoder_seek_where_ms(gcc_unused Decoder &decoder)
+{
+	return 1;
+}
+
+uint64_t
+decoder_seek_where_frame(gcc_unused Decoder &decoder)
+{
+	return 1;
+}
+
 void
 decoder_seek_error(gcc_unused Decoder &decoder)
 {
