@@ -156,9 +156,9 @@ gme_file_decode(Decoder &decoder, Path path_fs)
 		return;
 	}
 
-	const float song_len = ti->length > 0
-		? ti->length / 1000.0
-		: -1.0;
+	const SignedSongTime song_len = ti->length > 0
+		? SignedSongTime::FromMS(ti->length)
+		: SignedSongTime::Negative();
 
 	/* initialize the MPD decoder */
 
@@ -194,7 +194,7 @@ gme_file_decode(Decoder &decoder, Path path_fs)
 
 		cmd = decoder_data(decoder, nullptr, buf, sizeof(buf), 0);
 		if (cmd == DecoderCommand::SEEK) {
-			unsigned where = decoder_seek_where_ms(decoder);
+			unsigned where = decoder_seek_time(decoder).ToMS();
 			gme_err = gme_seek(emu, where);
 			if (gme_err != nullptr)
 				LogWarning(gme_domain, gme_err);
@@ -238,7 +238,7 @@ gme_scan_file(Path path_fs,
 
 	if (ti->length > 0)
 		tag_handler_invoke_duration(handler, handler_ctx,
-					    ti->length / 100);
+					    SongTime::FromMS(ti->length));
 
 	if (ti->song != nullptr) {
 		if (gme_track_count(emu) > 1) {

@@ -64,13 +64,11 @@ struct AudioFileInputStream {
 };
 
 gcc_pure
-static double
+static SongTime
 audiofile_get_duration(AFfilehandle fh)
 {
-	double frame_count = afGetFrameCount(fh, AF_DEFAULT_TRACK);
-	double rate = afGetRate(fh, AF_DEFAULT_TRACK);
-
-	return frame_count / rate;
+	return SongTime::FromScale<uint64_t>(afGetFrameCount(fh, AF_DEFAULT_TRACK),
+					     afGetRate(fh, AF_DEFAULT_TRACK));
 }
 
 static ssize_t
@@ -208,10 +206,10 @@ audiofile_stream_decode(Decoder &decoder, InputStream &is)
 		return;
 	}
 
-	const double total_time = audiofile_get_duration(fh);
+	const auto total_time = audiofile_get_duration(fh);
 
 	const uint16_t kbit_rate = (uint16_t)
-		(is.GetSize() * 8.0 / total_time / 1000.0 + 0.5);
+		(is.GetSize() * uint64_t(8000) / total_time.ToMS());
 
 	const unsigned frame_size = (unsigned)
 		afGetVirtualFrameSize(fh, AF_DEFAULT_TRACK, true);
@@ -246,19 +244,19 @@ audiofile_stream_decode(Decoder &decoder, InputStream &is)
 }
 
 gcc_pure
-static int
+static SignedSongTime
 audiofile_get_duration(InputStream &is)
 {
 	if (!is.IsSeekable() || !is.KnownSize())
-		return -1;
+		return SignedSongTime::Negative();
 
 	AudioFileInputStream afis{nullptr, is};
 	AFvirtualfile *vf = setup_virtual_fops(afis);
 	AFfilehandle fh = afOpenVirtualFile(vf, "r", nullptr);
 	if (fh == AF_NULL_FILEHANDLE)
-		return -1;
+		return SignedSongTime::Negative();
 
-	int duration = int(audiofile_get_duration(fh));
+	const auto duration = audiofile_get_duration(fh);
 	afCloseFile(fh);
 	return duration;
 }
@@ -267,11 +265,11 @@ static bool
 audiofile_scan_stream(InputStream &is,
 		      const struct tag_handler *handler, void *handler_ctx)
 {
-	int total_time = audiofile_get_duration(is);
-	if (total_time < 0)
+	const auto duration = audiofile_get_duration(is);
+	if (duration.IsNegative())
 		return false;
 
-	tag_handler_invoke_duration(handler, handler_ctx, total_time);
+	tag_handler_invoke_duration(handler, handler_ctx, SongTime(duration));
 	return true;
 }
 

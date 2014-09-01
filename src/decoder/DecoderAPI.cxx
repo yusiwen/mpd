@@ -41,7 +41,7 @@
 void
 decoder_initialized(Decoder &decoder,
 		    const AudioFormat audio_format,
-		    bool seekable, float total_time)
+		    bool seekable, SignedSongTime duration)
 {
 	DecoderControl &dc = decoder.dc;
 	struct audio_format_string af_string;
@@ -59,7 +59,7 @@ decoder_initialized(Decoder &decoder,
 	dc.out_audio_format = getOutputAudioFormat(audio_format);
 
 	dc.seekable = seekable;
-	dc.total_time = total_time;
+	dc.total_time = duration;
 
 	FormatDebug(decoder_domain, "audio_format=%s, seekable=%s",
 		    audio_format_to_string(dc.in_audio_format, &af_string),
@@ -179,7 +179,7 @@ decoder_command_finished(Decoder &decoder)
 		assert(dc.pipe->IsEmpty());
 
 		decoder.initial_seek_running = false;
-		decoder.timestamp = dc.start_ms / 1000.;
+		decoder.timestamp = dc.start_time.ToDoubleS();
 		dc.Unlock();
 		return;
 	}
@@ -196,7 +196,7 @@ decoder_command_finished(Decoder &decoder)
 
 		dc.pipe->Clear(*dc.buffer);
 
-		decoder.timestamp = dc.seek_where;
+		decoder.timestamp = dc.seek_time.ToDoubleS();
 	}
 
 	dc.command = DecoderCommand::NONE;
@@ -204,37 +204,21 @@ decoder_command_finished(Decoder &decoder)
 	dc.Unlock();
 }
 
-double decoder_seek_where(gcc_unused Decoder & decoder)
+SongTime
+decoder_seek_time(Decoder &decoder)
 {
 	const DecoderControl &dc = decoder.dc;
 
 	assert(dc.pipe != nullptr);
 
 	if (decoder.initial_seek_running)
-		return dc.start_ms / 1000.;
+		return dc.start_time;
 
 	assert(dc.command == DecoderCommand::SEEK);
 
 	decoder.seeking = true;
 
-	return dc.seek_where;
-}
-
-unsigned
-decoder_seek_where_ms(Decoder &decoder)
-{
-	const DecoderControl &dc = decoder.dc;
-
-	assert(dc.pipe != nullptr);
-
-	if (decoder.initial_seek_running)
-		return dc.start_ms;
-
-	assert(dc.command == DecoderCommand::SEEK);
-
-	decoder.seeking = true;
-
-	return unsigned(dc.seek_where * 1000);
+	return dc.seek_time;
 }
 
 uint64_t
@@ -242,17 +226,7 @@ decoder_seek_where_frame(Decoder &decoder)
 {
 	const DecoderControl &dc = decoder.dc;
 
-	assert(dc.pipe != nullptr);
-
-	if (decoder.initial_seek_running)
-		return uint64_t(dc.start_ms) * dc.in_audio_format.sample_rate
-			/ 1000;
-
-	assert(dc.command == DecoderCommand::SEEK);
-
-	decoder.seeking = true;
-
-	return uint64_t(dc.seek_where * dc.in_audio_format.sample_rate);
+	return decoder_seek_time(decoder).ToScale<uint64_t>(dc.in_audio_format.sample_rate);
 }
 
 void decoder_seek_error(Decoder & decoder)
@@ -536,20 +510,16 @@ decoder_data(Decoder &decoder,
 
 		const auto dest =
 			chunk->Write(dc.out_audio_format,
-				     decoder.timestamp -
-				     dc.song->GetStartMS() / 1000.0,
+				     SongTime::FromS(decoder.timestamp) -
+				     dc.song->GetStartTime(),
 				     kbit_rate);
-		if (dest.IsNull()) {
+		if (dest.IsEmpty()) {
 			/* the chunk is full, flush it */
 			decoder.FlushChunk();
 			continue;
 		}
 
-		size_t nbytes = dest.size;
-		assert(nbytes > 0);
-
-		if (nbytes > length)
-			nbytes = length;
+		const size_t nbytes = std::min(dest.size, length);
 
 		/* copy the buffer */
 
@@ -569,8 +539,8 @@ decoder_data(Decoder &decoder,
 		decoder.timestamp += (double)nbytes /
 			dc.out_audio_format.GetTimeToSize();
 
-		if (dc.end_ms > 0 &&
-		    decoder.timestamp >= dc.end_ms / 1000.0)
+		if (dc.end_time.IsPositive() &&
+		    decoder.timestamp >= dc.end_time.ToDoubleS())
 			/* the end of this range has been reached:
 			   stop decoding */
 			return DecoderCommand::STOP;

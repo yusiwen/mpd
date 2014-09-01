@@ -37,6 +37,7 @@
 #include "AudioFormat.hxx"
 #include "MixRampInfo.hxx"
 #include "config/ConfigData.hxx"
+#include "Chrono.hxx"
 
 // IWYU pragma: end_exports
 
@@ -52,12 +53,13 @@ class Error;
  * @param audio_format the audio format which is going to be sent to
  * decoder_data()
  * @param seekable true if the song is seekable
- * @param total_time the total number of seconds in this song; -1 if unknown
+ * @param duration the total duration of this song; negative if
+ * unknown
  */
 void
 decoder_initialized(Decoder &decoder,
 		    AudioFormat audio_format,
-		    bool seekable, float total_time);
+		    bool seekable, SignedSongTime duration);
 
 /**
  * Determines the pending decoder command.
@@ -84,21 +86,11 @@ decoder_command_finished(Decoder &decoder);
  * Call this when you have received the DecoderCommand::SEEK command.
  *
  * @param decoder the decoder object
- * @return the destination position for the week
- */
-gcc_pure
-double
-decoder_seek_where(Decoder &decoder);
-
-/**
- * Call this when you have received the DecoderCommand::SEEK command.
- *
- * @param decoder the decoder object
  * @return the destination position for the seek in milliseconds
  */
 gcc_pure
-unsigned
-decoder_seek_where_ms(Decoder &decoder);
+SongTime
+decoder_seek_time(Decoder &decoder);
 
 /**
  * Call this when you have received the DecoderCommand::SEEK command.

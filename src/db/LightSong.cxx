@@ -20,14 +20,16 @@
 #include "LightSong.hxx"
 #include "tag/Tag.hxx"
 
-double
+SignedSongTime
 LightSong::GetDuration() const
 {
-	if (end_ms > 0)
-		return (end_ms - start_ms) / 1000.0;
+	SongTime a = start_time, b = end_time;
+	if (!b.IsPositive()) {
+		if (tag->duration.IsNegative())
+			return tag->duration;
 
-	if (tag->time <= 0)
-		return 0;
+		b = SongTime(tag->duration);
+	}
 
-	return tag->time - start_ms / 1000.0;
+	return SignedSongTime(b - a);
 }

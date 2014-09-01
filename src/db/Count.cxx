@@ -30,10 +30,10 @@
 
 struct SearchStats {
 	unsigned n_songs;
-	unsigned long total_time_s;
+	std::chrono::duration<std::uint64_t, SongTime::period> total_duration;
 
 	constexpr SearchStats()
-		:n_songs(0), total_time_s(0) {}
+		:n_songs(0), total_duration(0) {}
 };
 
 class TagCountMap : public std::map<std::string, SearchStats> {
@@ -42,10 +42,13 @@ class TagCountMap : public std::map<std::string, SearchStats> {
 static void
 PrintSearchStats(Client &client, const SearchStats &stats)
 {
+	unsigned total_duration_s =
+		std::chrono::duration_cast<std::chrono::seconds>(stats.total_duration).count();
+
 	client_printf(client,
 		      "songs: %u\n"
-		      "playtime: %lu\n",
-		      stats.n_songs, stats.total_time_s);
+		      "playtime: %u\n",
+		      stats.n_songs, total_duration_s);
 }
 
 static void
@@ -64,7 +67,10 @@ static bool
 stats_visitor_song(SearchStats &stats, const LightSong &song)
 {
 	stats.n_songs++;
-	stats.total_time_s += song.GetDuration();
+
+	const auto duration = song.GetDuration();
+	if (!duration.IsNegative())
+		stats.total_duration += duration;
 
 	return true;
 }
@@ -79,8 +85,8 @@ CollectGroupCounts(TagCountMap &map, TagType group, const Tag &tag)
 							   SearchStats()));
 			SearchStats &s = r.first->second;
 			++s.n_songs;
-			if (tag.time > 0)
-				s.total_time_s += tag.time;
+			if (!tag.duration.IsNegative())
+				s.total_duration += tag.duration;
 
 			found = true;
 		}

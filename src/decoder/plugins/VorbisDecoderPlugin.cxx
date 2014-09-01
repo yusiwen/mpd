@@ -202,6 +202,16 @@ vorbis_init(gcc_unused const config_param &param)
 	return true;
 }
 
+gcc_pure
+static SignedSongTime
+vorbis_duration(OggVorbis_File &vf)
+{
+	auto total = ov_time_total(&vf, -1);
+	return total >= 0
+		? SignedSongTime::FromS(total)
+		: SignedSongTime::Negative();
+}
+
 static void
 vorbis_stream_decode(Decoder &decoder,
 		     InputStream &input_stream)
@@ -237,11 +247,8 @@ vorbis_stream_decode(Decoder &decoder,
 		return;
 	}
 
-	float total_time = ov_time_total(&vf, -1);
-	if (total_time < 0)
-		total_time = 0;
-
-	decoder_initialized(decoder, audio_format, vis.seekable, total_time);
+	decoder_initialized(decoder, audio_format, vis.seekable,
+			    vorbis_duration(vf));
 
 #ifdef HAVE_TREMOR
 	char buffer[4096];
@@ -340,8 +347,10 @@ vorbis_scan_stream(InputStream &is,
 	if (!vorbis_is_open(&vis, &vf))
 		return false;
 
-	tag_handler_invoke_duration(handler, handler_ctx,
-				    (int)(ov_time_total(&vf, -1) + 0.5));
+	const auto total = ov_time_total(&vf, -1);
+	if (total >= 0)
+		tag_handler_invoke_duration(handler, handler_ctx,
+					    SongTime::FromS(total));
 
 	vorbis_comments_scan(ov_comment(&vf, -1)->user_comments,
 			     handler, handler_ctx);

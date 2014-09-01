@@ -86,8 +86,11 @@ wildmidi_file_decode(Decoder &decoder, Path path_fs)
 		return;
 	}
 
-	decoder_initialized(decoder, audio_format, true,
-			    info->approx_total_samples / WILDMIDI_SAMPLE_RATE);
+	const auto duration =
+		SongTime::FromScale<uint64_t>(info->approx_total_samples,
+					      WILDMIDI_SAMPLE_RATE);
+
+	decoder_initialized(decoder, audio_format, true, duration);
 
 	DecoderCommand cmd;
 	do {
@@ -132,7 +135,9 @@ wildmidi_scan_file(Path path_fs,
 		return false;
 	}
 
-	int duration = info->approx_total_samples / WILDMIDI_SAMPLE_RATE;
+	const auto duration =
+		SongTime::FromScale<uint64_t>(info->approx_total_samples,
+					      WILDMIDI_SAMPLE_RATE);
 	tag_handler_invoke_duration(handler, handler_ctx, duration);
 
 	WildMidi_Close(wm);

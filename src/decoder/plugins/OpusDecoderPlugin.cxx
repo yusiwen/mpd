@@ -253,9 +253,10 @@ MPDOpusDecoder::HandleBOS(const ogg_packet &packet)
 
 	eos_granulepos = LoadEOSGranulePos(input_stream, &decoder,
 					   opus_serialno);
-	const double duration = eos_granulepos >= 0
-		? double(eos_granulepos) / opus_sample_rate
-		: -1.0;
+	const auto duration = eos_granulepos >= 0
+		? SignedSongTime::FromScale<uint64_t>(eos_granulepos,
+						      opus_sample_rate)
+		: SignedSongTime::Negative();
 
 	const AudioFormat audio_format(opus_sample_rate,
 				       SampleFormat::S16, channels);
@@ -440,9 +441,12 @@ mpd_opus_scan_stream(InputStream &is,
 		}
 	}
 
-	if (packet.e_o_s || OggSeekFindEOS(oy, os, packet, is))
-		tag_handler_invoke_duration(handler, handler_ctx,
-					    packet.granulepos / opus_sample_rate);
+	if (packet.e_o_s || OggSeekFindEOS(oy, os, packet, is)) {
+		const auto duration =
+			SongTime::FromScale<uint64_t>(packet.granulepos,
+						      opus_sample_rate);
+		tag_handler_invoke_duration(handler, handler_ctx, duration);
+	}
 
 	ogg_stream_clear(&os);
 

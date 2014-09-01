@@ -28,11 +28,12 @@ DetachedSong::DetachedSong(const LightSong &other)
 	 real_uri(other.real_uri != nullptr ? other.real_uri : ""),
 	 tag(*other.tag),
 	 mtime(other.mtime),
-	 start_ms(other.start_ms), end_ms(other.end_ms) {}
+	 start_time(other.start_time),
+	 end_time(other.end_time) {}
 
 DetachedSong::~DetachedSong()
 {
-	/* this destructor exists here just so it won't get inlined */
+	/* this destructor exists here just so it won't  inlined */
 }
 
 bool
@@ -57,11 +58,16 @@ DetachedSong::IsInDatabase() const
 	return !uri_has_scheme(_uri) && !PathTraitsUTF8::IsAbsolute(_uri);
 }
 
-double
+SignedSongTime
 DetachedSong::GetDuration() const
 {
-	if (end_ms > 0)
-		return (end_ms - start_ms) / 1000.0;
+	SongTime a = start_time, b = end_time;
+	if (!b.IsPositive()) {
+		if (tag.duration.IsNegative())
+			return tag.duration;
 
-	return tag.time - start_ms / 1000.0;
+		b = SongTime(tag.duration);
+	}
+
+	return SignedSongTime(b - a);
 }

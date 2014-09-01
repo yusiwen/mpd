@@ -29,6 +29,8 @@ class DetachedSong;
 class Database;
 class Error;
 class SongLoader;
+class SongTime;
+class SignedSongTime;
 
 struct playlist {
 	/**
@@ -226,11 +228,11 @@ public:
 				     unsigned song_id, uint8_t priority);
 
 	/**
-	 * Sets the start_ms and end_ms attributes on the song
+	 * Sets the start_time and end_time attributes on the song
 	 * with the specified id.
 	 */
 	bool SetSongIdRange(PlayerControl &pc, unsigned id,
-			    unsigned start_ms, unsigned end_ms,
+			    SongTime start, SongTime end,
 			    Error &error);
 
 	bool AddSongIdTag(unsigned id, TagType tag_type, const char *value,
@@ -249,12 +251,16 @@ public:
 
 	void PlayPrevious(PlayerControl &pc);
 
+	PlaylistResult SeekSongOrder(PlayerControl &pc,
+				     unsigned song_order,
+				     SongTime seek_time);
+
 	PlaylistResult SeekSongPosition(PlayerControl &pc,
 					unsigned song_position,
-					float seek_time);
+					SongTime seek_time);
 
 	PlaylistResult SeekSongId(PlayerControl &pc,
-				  unsigned song_id, float seek_time);
+				  unsigned song_id, SongTime seek_time);
 
 	/**
 	 * Seek within the current song.  Fails if MPD is not currently
@@ -265,7 +271,7 @@ public:
 	 * current position
 	 */
 	PlaylistResult SeekCurrent(PlayerControl &pc,
-				   float seek_time, bool relative);
+				   SignedSongTime seek_time, bool relative);
 
 	bool GetRepeat() const {
 		return queue.repeat;

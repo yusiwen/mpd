@@ -52,7 +52,7 @@ song_save(BufferedOutputStream &os, const Song &song)
 {
 	os.Format(SONG_BEGIN "%s\n", song.uri);
 
-	range_save(os, song.start_ms, song.end_ms);
+	range_save(os, song.start_time.ToMS(), song.end_time.ToMS());
 
 	tag_save(os, song.tag);
 
@@ -65,7 +65,7 @@ song_save(BufferedOutputStream &os, const DetachedSong &song)
 {
 	os.Format(SONG_BEGIN "%s\n", song.GetURI());
 
-	range_save(os, song.GetStartMS(), song.GetEndMS());
+	range_save(os, song.GetStartTime().ToMS(), song.GetEndTime().ToMS());
 
 	tag_save(os, song.GetTag());
 
@@ -100,7 +100,7 @@ song_load(TextFile &file, const char *uri,
 		if ((type = tag_name_parse(line)) != TAG_NUM_OF_ITEM_TYPES) {
 			tag.AddItem(type, value);
 		} else if (strcmp(line, "Time") == 0) {
-			tag.SetTime(atoi(value));
+			tag.SetDuration(SignedSongTime::FromS(atof(value)));
 		} else if (strcmp(line, "Playlist") == 0) {
 			tag.SetHasPlaylist(strcmp(value, "yes") == 0);
 		} else if (strcmp(line, SONG_MTIME) == 0) {
@@ -113,8 +113,8 @@ song_load(TextFile &file, const char *uri,
 				? strtoul(endptr + 1, nullptr, 10)
 				: 0;
 
-			song->SetStartMS(start_ms);
-			song->SetEndMS(end_ms);
+			song->SetStartTime(SongTime::FromMS(start_ms));
+			song->SetEndTime(SongTime::FromMS(end_ms));
 		} else {
 			delete song;
 

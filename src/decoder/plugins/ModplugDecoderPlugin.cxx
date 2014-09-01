@@ -153,7 +153,7 @@ mod_decode(Decoder &decoder, InputStream &is)
 
 	decoder_initialized(decoder, audio_format,
 			    is.IsSeekable(),
-			    ModPlug_GetLength(f) / 1000.0);
+			    SongTime::FromMS(ModPlug_GetLength(f)));
 
 	DecoderCommand cmd;
 	do {
@@ -166,7 +166,7 @@ mod_decode(Decoder &decoder, InputStream &is)
 				   0);
 
 		if (cmd == DecoderCommand::SEEK) {
-			ModPlug_Seek(f, decoder_seek_where_ms(decoder));
+			ModPlug_Seek(f, decoder_seek_time(decoder).ToMS());
 			decoder_command_finished(decoder);
 		}
 
@@ -184,7 +184,7 @@ modplug_scan_stream(InputStream &is,
 		return false;
 
 	tag_handler_invoke_duration(handler, handler_ctx,
-				    ModPlug_GetLength(f) / 1000);
+				    SongTime::FromMS(ModPlug_GetLength(f)));
 
 	const char *title = ModPlug_GetName(f);
 	if (title != nullptr)

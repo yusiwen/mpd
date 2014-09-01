@@ -210,11 +210,19 @@ time_from_ffmpeg(int64_t t, const AVRational time_base)
 		/ (double)1024;
 }
 
+template<typename Ratio>
+static constexpr AVRational
+RatioToAVRational()
+{
+	return { Ratio::num, Ratio::den };
+}
+
 gcc_const
 static int64_t
-time_to_ffmpeg(double t_ms, const AVRational time_base)
+time_to_ffmpeg(SongTime t, const AVRational time_base)
 {
-	return av_rescale_q(t_ms, (AVRational){1, 1000},
+	return av_rescale_q(t.count(),
+			    RatioToAVRational<SongTime::period>(),
 			    time_base);
 }
 
@@ -506,9 +514,11 @@ ffmpeg_decode(Decoder &decoder, InputStream &input)
 		return;
 	}
 
-	int total_time = format_context->duration != (int64_t)AV_NOPTS_VALUE
-		? format_context->duration / AV_TIME_BASE
-		: 0;
+	const SignedSongTime total_time =
+		format_context->duration != (int64_t)AV_NOPTS_VALUE
+		? SignedSongTime::FromScale<uint64_t>(format_context->duration,
+						      AV_TIME_BASE)
+		: SignedSongTime::Negative();
 
 	decoder_initialized(decoder, audio_format,
 			    input.IsSeekable(), total_time);
@@ -547,7 +557,7 @@ ffmpeg_decode(Decoder &decoder, InputStream &input)
 
 		if (cmd == DecoderCommand::SEEK) {
 			int64_t where =
-				time_to_ffmpeg(decoder_seek_where_ms(decoder),
+				time_to_ffmpeg(decoder_seek_time(decoder),
 					       av_stream->time_base) +
 				start_time_fallback(*av_stream);
 
@@ -599,9 +609,12 @@ ffmpeg_scan_stream(InputStream &is,
 		return false;
 	}
 
-	if (f->duration != (int64_t)AV_NOPTS_VALUE)
-		tag_handler_invoke_duration(handler, handler_ctx,
-					    f->duration / AV_TIME_BASE);
+	if (f->duration != (int64_t)AV_NOPTS_VALUE) {
+		const auto duration =
+			SongTime::FromScale<uint64_t>(f->duration,
+						      AV_TIME_BASE);
+		tag_handler_invoke_duration(handler, handler_ctx, duration);
+	}
 
 	ffmpeg_scan_dictionary(f->metadata, handler, handler_ctx);
 	int idx = ffmpeg_find_audio_stream(f);

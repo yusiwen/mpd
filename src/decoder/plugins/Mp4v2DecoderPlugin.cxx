@@ -149,7 +149,8 @@ mp4_file_decode(Decoder &mpd_decoder, Path path_fs)
 	/* initialize the MPD core */
 
 	const MP4Timestamp scale = MP4GetTrackTimeScale(handle, track);
-	const float duration = ((float)MP4GetTrackDuration(handle, track)) / scale + 0.5f;
+	const SongTime duration = SongTime::FromScale<uint64_t>(MP4GetTrackDuration(handle, track),
+								scale);
 	const MP4SampleId num_samples = MP4GetTrackNumberOfSamples(handle, track);
 
 	decoder_initialized(mpd_decoder, audio_format, true, duration);
@@ -165,9 +166,8 @@ mp4_file_decode(Decoder &mpd_decoder, Path path_fs)
 		unsigned int data_length = 0;
 
 		if (cmd == DecoderCommand::SEEK) {
-			const unsigned offset_ms =
-				decoder_seek_where_ms(mpd_decoder);
-			const MP4Timestamp offset = (offset_ms * scale) / 1000;
+			const MP4Timestamp offset =
+				decoder_seek_time(mpd_decoder).ToScale(scale);
 
 			sample = MP4GetSampleIdFromTime(handle, track, offset,
 							false);
@@ -256,8 +256,10 @@ mp4_scan_file(Path path_fs,
 		return false;
 	}
 
-	const MP4Duration dur = MP4GetTrackDuration(handle, id) /
-		MP4GetTrackTimeScale(handle, id);
+	const MP4Timestamp scale = MP4GetTrackTimeScale(handle, id);
+	const SongTime dur =
+		SongTime::FromScale<uint64_t>(MP4GetTrackDuration(handle, id),
+					      scale);
 	tag_handler_invoke_duration(handler, handler_ctx, dur);
 
 	const MP4Tags* tags = MP4TagsAlloc();

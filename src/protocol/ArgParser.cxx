@@ -20,6 +20,7 @@
 #include "config.h"
 #include "ArgParser.hxx"
 #include "Result.hxx"
+#include "Chrono.hxx"
 
 #include <limits>
 
@@ -185,4 +186,26 @@ check_float(Client &client, float *value_r, const char *s)
 
 	*value_r = value;
 	return true;
+}
+
+bool
+ParseCommandArg(Client &client, SongTime &value_r, const char *s)
+{
+	float value;
+	bool success = check_float(client, &value, s) && value >= 0;
+	if (success)
+		value_r = SongTime::FromS(value);
+
+	return success;
+}
+
+bool
+ParseCommandArg(Client &client, SignedSongTime &value_r, const char *s)
+{
+	float value;
+	bool success = check_float(client, &value, s);
+	if (success)
+		value_r = SignedSongTime::FromS(value);
+
+	return success;
 }

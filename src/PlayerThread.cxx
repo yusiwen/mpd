@@ -129,7 +129,7 @@ class Player {
 	 * value; the output thread can estimate the elapsed time more
 	 * precisely.
 	 */
-	float elapsed_time;
+	SongTime elapsed_time;
 
 public:
 	Player(PlayerControl &_pc, DecoderControl &_dc,
@@ -146,7 +146,7 @@ public:
 		 cross_fading(false),
 		 cross_fade_chunks(0),
 		 cross_fade_tag(nullptr),
-		 elapsed_time(0.0) {}
+		 elapsed_time(SongTime::zero()) {}
 
 private:
 	void ClearAndDeletePipe() {
@@ -291,12 +291,12 @@ Player::StartDecoder(MusicPipe &_pipe)
 	assert(queued || pc.command == PlayerCommand::SEEK);
 	assert(pc.next_song != nullptr);
 
-	unsigned start_ms = pc.next_song->GetStartMS();
+	SongTime start_time = pc.next_song->GetStartTime();
 	if (pc.command == PlayerCommand::SEEK)
-		start_ms += (unsigned)(pc.seek_where * 1000);
+		start_time += pc.seek_time;
 
 	dc.Start(new DetachedSong(*pc.next_song),
-		 start_ms, pc.next_song->GetEndMS(),
+		 start_time, pc.next_song->GetEndTime(),
 		 buffer, _pipe);
 }
 
@@ -342,7 +342,7 @@ Player::WaitForDecoder()
 
 	delete song;
 	song = pc.next_song;
-	elapsed_time = 0.0;
+	elapsed_time = SongTime::zero();
 
 	/* set the "starting" flag, which will be cleared by
 	   player_check_decoder_startup() */
@@ -368,21 +368,21 @@ Player::WaitForDecoder()
  * Returns the real duration of the song, comprising the duration
  * indicated by the decoder plugin.
  */
-static double
-real_song_duration(const DetachedSong &song, double decoder_duration)
+static SignedSongTime
+real_song_duration(const DetachedSong &song, SignedSongTime decoder_duration)
 {
-	if (decoder_duration <= 0.0)
+	if (decoder_duration.IsNegative())
 		/* the decoder plugin didn't provide information; fall
 		   back to Song::GetDuration() */
 		return song.GetDuration();
 
-	const unsigned start_ms = song.GetStartMS();
-	const unsigned end_ms = song.GetEndMS();
+	const SongTime start_time = song.GetStartTime();
+	const SongTime end_time = song.GetEndTime();
 
-	if (end_ms > 0 && end_ms / 1000.0 < decoder_duration)
-		return (end_ms - start_ms) / 1000.0;
+	if (end_time.IsPositive() && end_time < SongTime(decoder_duration))
+		return SignedSongTime(end_time - start_time);
 
-	return decoder_duration - start_ms / 1000.0;
+	return SignedSongTime(SongTime(decoder_duration) - start_time);
 }
 
 bool
@@ -499,7 +499,7 @@ Player::SendSilence()
 	   partial frames */
 	unsigned num_frames = sizeof(chunk->data) / frame_size;
 
-	chunk->times = -1.0; /* undefined time stamp */
+	chunk->time = SignedSongTime::Negative(); /* undefined time stamp */
 	chunk->length = num_frames * frame_size;
 	memset(chunk->data, 0, chunk->length);
 
@@ -518,7 +518,7 @@ Player::SeekDecoder()
 {
 	assert(pc.next_song != nullptr);
 
-	const unsigned start_ms = pc.next_song->GetStartMS();
+	const SongTime start_time = pc.next_song->GetStartTime();
 
 	if (!dc.LockIsCurrentSong(*pc.next_song)) {
 		/* the decoder is already decoding the "next" song -
@@ -561,13 +561,14 @@ Player::SeekDecoder()
 
 	/* send the SEEK command */
 
-	double where = pc.seek_where;
-	if (where > pc.total_time)
-		where = pc.total_time - 0.1;
-	if (where < 0.0)
-		where = 0.0;
+	SongTime where = pc.seek_time;
+	if (!pc.total_time.IsNegative()) {
+		const SongTime total_time(pc.total_time);
+		if (where > total_time)
+			where = total_time;
+	}
 
-	if (!dc.Seek(where + start_ms / 1000.0)) {
+	if (!dc.Seek(where + start_time)) {
 		/* decoder failure */
 		player_command_finished(pc);
 		return false;
@@ -673,9 +674,9 @@ Player::ProcessCommand()
 			pc.Lock();
 		}
 
-		pc.elapsed_time = pc.outputs.GetElapsedTime();
-		if (pc.elapsed_time < 0.0)
-			pc.elapsed_time = elapsed_time;
+		pc.elapsed_time = !pc.outputs.GetElapsedTime().IsNegative()
+			? SongTime(pc.outputs.GetElapsedTime())
+			: elapsed_time;
 
 		pc.CommandFinished();
 		break;
@@ -923,7 +924,7 @@ Player::Run()
 	pc.state = PlayerState::PLAY;
 
 	if (pc.command == PlayerCommand::SEEK)
-		elapsed_time = pc.seek_where;
+		elapsed_time = pc.seek_time;
 
 	pc.CommandFinished();
 

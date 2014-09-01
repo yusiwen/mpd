@@ -26,6 +26,7 @@
 #include "thread/Mutex.hxx"
 #include "thread/Cond.hxx"
 #include "thread/Thread.hxx"
+#include "Chrono.hxx"
 #include "util/Error.hxx"
 
 #include <assert.h>
@@ -107,7 +108,7 @@ struct DecoderControl {
 
 	bool seek_error;
 	bool seekable;
-	double seek_where;
+	SongTime seek_time;
 
 	/** the format of the song file */
 	AudioFormat in_audio_format;
@@ -126,23 +127,22 @@ struct DecoderControl {
 	DetachedSong *song;
 
 	/**
-	 * The initial seek position (in milliseconds), e.g. to the
-	 * start of a sub-track described by a CUE file.
+	 * The initial seek position, e.g. to the start of a sub-track
+	 * described by a CUE file.
 	 *
-	 * This attribute is set by dc_start().
+	 * This attribute is set by Start().
 	 */
-	unsigned start_ms;
+	SongTime start_time;
 
 	/**
-	 * The decoder will stop when it reaches this position (in
-	 * milliseconds).  0 means don't stop before the end of the
-	 * file.
+	 * The decoder will stop when it reaches this position.  0
+	 * means don't stop before the end of the file.
 	 *
-	 * This attribute is set by dc_start().
+	 * This attribute is set by Start().
 	 */
-	unsigned end_ms;
+	SongTime end_time;
 
-	float total_time;
+	SignedSongTime total_time;
 
 	/** the #MusicChunk allocator */
 	MusicBuffer *buffer;
@@ -263,7 +263,7 @@ struct DecoderControl {
 	}
 
 	/**
-	 * Like dc_get_error(), but locks and unlocks the object.
+	 * Like GetError(), but locks and unlocks the object.
 	 */
 	gcc_pure
 	Error LockGetError() const {
@@ -355,17 +355,17 @@ public:
 	 *
 	 * @param song the song to be decoded; the given instance will be
 	 * owned and freed by the decoder
-	 * @param start_ms see #DecoderControl
-	 * @param end_ms see #DecoderControl
+	 * @param start_time see #DecoderControl
+	 * @param end_time see #DecoderControl
 	 * @param pipe the pipe which receives the decoded chunks (owned by
 	 * the caller)
 	 */
-	void Start(DetachedSong *song, unsigned start_ms, unsigned end_ms,
+	void Start(DetachedSong *song, SongTime start_time, SongTime end_time,
 		   MusicBuffer &buffer, MusicPipe &pipe);
 
 	void Stop();
 
-	bool Seek(double where);
+	bool Seek(SongTime t);
 
 	void Quit();
 

@@ -190,16 +190,11 @@ playlist::PlayPrevious(PlayerControl &pc)
 }
 
 PlaylistResult
-playlist::SeekSongPosition(PlayerControl &pc, unsigned song, float seek_time)
+playlist::SeekSongOrder(PlayerControl &pc, unsigned i, SongTime seek_time)
 {
-	if (!queue.IsValidPosition(song))
-		return PlaylistResult::BAD_RANGE;
+	assert(queue.IsValidOrder(i));
 
 	const DetachedSong *queued_song = GetQueuedSong();
-
-	unsigned i = queue.random
-		? queue.PositionToOrder(song)
-		: song;
 
 	pc.ClearError();
 	stop_on_error = true;
@@ -228,7 +223,21 @@ playlist::SeekSongPosition(PlayerControl &pc, unsigned song, float seek_time)
 }
 
 PlaylistResult
-playlist::SeekSongId(PlayerControl &pc, unsigned id, float seek_time)
+playlist::SeekSongPosition(PlayerControl &pc, unsigned song,
+			   SongTime seek_time)
+{
+	if (!queue.IsValidPosition(song))
+		return PlaylistResult::BAD_RANGE;
+
+	unsigned i = queue.random
+		? queue.PositionToOrder(song)
+		: song;
+
+	return SeekSongOrder(pc, i, seek_time);
+}
+
+PlaylistResult
+playlist::SeekSongId(PlayerControl &pc, unsigned id, SongTime seek_time)
 {
 	int song = queue.IdToPosition(id);
 	if (song < 0)
@@ -238,7 +247,8 @@ playlist::SeekSongId(PlayerControl &pc, unsigned id, float seek_time)
 }
 
 PlaylistResult
-playlist::SeekCurrent(PlayerControl &pc, float seek_time, bool relative)
+playlist::SeekCurrent(PlayerControl &pc,
+		      SignedSongTime seek_time, bool relative)
 {
 	if (!playing)
 		return PlaylistResult::NOT_PLAYING;
@@ -250,11 +260,13 @@ playlist::SeekCurrent(PlayerControl &pc, float seek_time, bool relative)
 		    status.state != PlayerState::PAUSE)
 			return PlaylistResult::NOT_PLAYING;
 
-		seek_time += (int)status.elapsed_time;
+		seek_time += status.elapsed_time;
+		if (seek_time.IsNegative())
+			seek_time = SignedSongTime::zero();
 	}
 
-	if (seek_time < 0)
-		seek_time = 0;
+	if (seek_time.IsNegative())
+		seek_time = SignedSongTime::zero();
 
-	return SeekSongPosition(pc, current, seek_time);
+	return SeekSongOrder(pc, current, SongTime(seek_time));
 }

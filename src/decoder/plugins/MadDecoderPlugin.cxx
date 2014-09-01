@@ -67,6 +67,13 @@ static constexpr Domain mad_domain("mad");
 
 static bool gapless_playback;
 
+gcc_const
+static SongTime
+ToSongTime(mad_timer_t t)
+{
+	return SongTime::FromMS(mad_timer_count(t, MAD_UNITS_MILLISECONDS));
+}
+
 static inline int32_t
 mad_fixed_to_24_sample(mad_fixed_t sample)
 {
@@ -115,9 +122,9 @@ struct MadDecoder {
 	mad_timer_t timer;
 	unsigned char input_buffer[READ_BUFFER_SIZE];
 	int32_t output_buffer[MP3_DATA_OUTPUT_BUFFER_SIZE];
-	float total_time;
-	unsigned elapsed_time;
-	unsigned seek_where;
+	SignedSongTime total_time;
+	SongTime elapsed_time;
+	SongTime seek_time;
 	enum muteframe mute_frame;
 	long *frame_offsets;
 	mad_timer_t *times;
@@ -159,7 +166,7 @@ struct MadDecoder {
 	bool DecodeFirstFrame(Tag **tag);
 
 	gcc_pure
-	long TimeToFrame(unsigned t) const;
+	long TimeToFrame(SongTime t) const;
 
 	void UpdateTimerNextFrame();
 
@@ -706,11 +713,10 @@ parse_lame(struct lame *lame, struct mad_bitptr *ptr, int *bitlen)
 	return true;
 }
 
-static inline float
+static inline SongTime
 mp3_frame_duration(const struct mad_frame *frame)
 {
-	return mad_timer_count(frame->header.duration,
-			       MAD_UNITS_MILLISECONDS) / 1000.0;
+	return ToSongTime(frame->header.duration);
 }
 
 inline offset_type
@@ -738,13 +744,19 @@ MadDecoder::FileSizeToSongLength()
 	if (input_stream.KnownSize()) {
 		offset_type rest = RestIncludingThisFrame();
 
-		float frame_duration = mp3_frame_duration(&frame);
+		const SongTime frame_duration = mp3_frame_duration(&frame);
+		const SongTime duration =
+			SongTime::FromScale<uint64_t>(rest,
+						      frame.header.bitrate / 8);
+		total_time = duration;
 
-		total_time = (rest * 8.0) / frame.header.bitrate;
-		max_frames = total_time / frame_duration + FRAMES_CUSHION;
+		max_frames = (frame_duration.IsPositive()
+			      ? duration.count() / frame_duration.count()
+			      : 0)
+			+ FRAMES_CUSHION;
 	} else {
 		max_frames = FRAMES_CUSHION;
-		total_time = 0;
+		total_time = SignedSongTime::Negative();
 	}
 }
 
@@ -785,7 +797,7 @@ MadDecoder::DecodeFirstFrame(Tag **tag)
 		if ((xing.flags & XING_FRAMES) && xing.frames) {
 			mad_timer_t duration = frame.header.duration;
 			mad_timer_multiply(&duration, xing.frames);
-			total_time = ((float)mad_timer_count(duration, MAD_UNITS_MILLISECONDS)) / 1000;
+			total_time = ToSongTime(duration);
 			max_frames = xing.frames;
 		}
 
@@ -837,23 +849,22 @@ MadDecoder::~MadDecoder()
 }
 
 /* this is primarily used for getting total time for tags */
-static int
+static std::pair<bool, SignedSongTime>
 mad_decoder_total_file_time(InputStream &is)
 {
 	MadDecoder data(nullptr, is);
 	return data.DecodeFirstFrame(nullptr)
-		? data.total_time + 0.5
-		: -1;
+		? std::make_pair(true, data.total_time)
+		: std::make_pair(false, SignedSongTime::Negative());
 }
 
 long
-MadDecoder::TimeToFrame(unsigned t) const
+MadDecoder::TimeToFrame(SongTime t) const
 {
 	unsigned long i;
 
 	for (i = 0; i < highest_frame; ++i) {
-		unsigned frame_time =
-			mad_timer_count(times[i], MAD_UNITS_MILLISECONDS);
+		auto frame_time = ToSongTime(times[i]);
 		if (frame_time >= t)
 			break;
 	}
@@ -884,7 +895,7 @@ MadDecoder::UpdateTimerNextFrame()
 		timer = times[current_frame];
 
 	current_frame++;
-	elapsed_time = mad_timer_count(timer, MAD_UNITS_MILLISECONDS);
+	elapsed_time = ToSongTime(timer);
 }
 
 DecoderCommand
@@ -980,7 +991,7 @@ MadDecoder::Read()
 		mute_frame = MUTEFRAME_NONE;
 		break;
 	case MUTEFRAME_SEEK:
-		if (elapsed_time >= seek_where)
+		if (elapsed_time >= seek_time)
 			mute_frame = MUTEFRAME_NONE;
 		break;
 	case MUTEFRAME_NONE:
@@ -989,7 +1000,7 @@ MadDecoder::Read()
 			assert(input_stream.IsSeekable());
 
 			unsigned long j =
-				TimeToFrame(decoder_seek_where_ms(*decoder));
+				TimeToFrame(decoder_seek_time(*decoder));
 			if (j < highest_frame) {
 				if (Seek(frame_offsets[j])) {
 					current_frame = j;
@@ -997,7 +1008,7 @@ MadDecoder::Read()
 				} else
 					decoder_seek_error(*decoder);
 			} else {
-				seek_where = decoder_seek_where_ms(*decoder);
+				seek_time = decoder_seek_time(*decoder);
 				mute_frame = MUTEFRAME_SEEK;
 				decoder_command_finished(*decoder);
 			}
@@ -1079,11 +1090,13 @@ static bool
 mad_decoder_scan_stream(InputStream &is,
 			const struct tag_handler *handler, void *handler_ctx)
 {
-	const int total_time = mad_decoder_total_file_time(is);
-	if (total_time < 0)
+	const auto result = mad_decoder_total_file_time(is);
+	if (!result.first)
 		return false;
 
-	tag_handler_invoke_duration(handler, handler_ctx, total_time);
+	if (!result.second.IsNegative())
+		tag_handler_invoke_duration(handler, handler_ctx,
+					    SongTime(result.second));
 	return true;
 }
 

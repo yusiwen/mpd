@@ -223,7 +223,9 @@ NfsConnection::DestroyContext()
 {
 	assert(context != nullptr);
 
-	SocketMonitor::Cancel();
+	if (SocketMonitor::IsDefined())
+		SocketMonitor::Cancel();
+
 	nfs_destroy_context(context);
 	context = nullptr;
 }
@@ -235,6 +237,9 @@ NfsConnection::ScheduleSocket()
 
 	if (!SocketMonitor::IsDefined()) {
 		int _fd = nfs_get_fd(context);
+		if (_fd < 0)
+			return;
+
 		fd_set_cloexec(_fd, true);
 		SocketMonitor::Open(_fd);
 	}
@@ -294,10 +299,25 @@ NfsConnection::OnSocketReady(unsigned flags)
 		DestroyContext();
 		closed = true;
 
-		if (!mount_finished)
-			BroadcastMountError(std::move(error));
+		BroadcastError(std::move(error));
+	} else if (SocketMonitor::IsDefined() && nfs_get_fd(context) < 0) {
+		/* this happens when rpc_reconnect_requeue() is called
+		   after the connection broke, but autoreconnet was
+		   disabled - nfs_service() returns 0 */
+		Error error;
+		const char *msg = nfs_get_error(context);
+		if (msg == nullptr)
+			error.Set(nfs_domain, "NFS socket disappeared");
 		else
-			BroadcastError(std::move(error));
+			error.Format(nfs_domain,
+				     "NFS socket disappeared: %s", msg);
+
+		const ScopeLock protect(mutex);
+
+		DestroyContext();
+		closed = true;
+
+		BroadcastError(std::move(error));
 	}
 
 	assert(in_event);
@@ -318,8 +338,9 @@ NfsConnection::MountCallback(int status, gcc_unused nfs_context *nfs,
 	mount_finished = true;
 
 	if (status < 0) {
-		postponed_mount_error.Set(nfs_domain, status,
-					  "nfs_mount_async() failed");
+		postponed_mount_error.Format(nfs_domain, status,
+					     "nfs_mount_async() failed: %s",
+					     nfs_get_error(context));
 		return;
 	}
 }

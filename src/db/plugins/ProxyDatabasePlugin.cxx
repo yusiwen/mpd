@@ -192,14 +192,17 @@ ProxySong::ProxySong(const mpd_song *song)
 	mtime = mpd_song_get_last_modified(song);
 
 #if LIBMPDCLIENT_CHECK_VERSION(2,3,0)
-	start_ms = mpd_song_get_start(song) * 1000;
-	end_ms = mpd_song_get_end(song) * 1000;
+	start_time = SongTime::FromS(mpd_song_get_start(song));
+	end_time = SongTime::FromS(mpd_song_get_end(song));
 #else
-	start_ms = end_ms = 0;
+	start_time = end_time = SongTime::zero();
 #endif
 
 	TagBuilder tag_builder;
-	tag_builder.SetTime(mpd_song_get_duration(song));
+
+	const unsigned duration = mpd_song_get_duration(song);
+	if (duration > 0)
+		tag_builder.SetDuration(SignedSongTime::FromS(duration));
 
 	for (const auto *i = &tag_table[0]; i->d != TAG_NUM_OF_ITEM_TYPES; ++i)
 		Copy(tag_builder, i->d, song, i->s);
@@ -804,7 +807,7 @@ ProxyDatabase::GetStats(const DatabaseSelection &selection,
 	update_stamp = (time_t)mpd_stats_get_db_update_time(stats2);
 
 	stats.song_count = mpd_stats_get_number_of_songs(stats2);
-	stats.total_duration = mpd_stats_get_db_play_time(stats2);
+	stats.total_duration = std::chrono::seconds(mpd_stats_get_db_play_time(stats2));
 	stats.artist_count = mpd_stats_get_number_of_artists(stats2);
 	stats.album_count = mpd_stats_get_number_of_albums(stats2);
 	mpd_stats_free(stats2);

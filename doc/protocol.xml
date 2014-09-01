@@ -576,7 +576,12 @@
               </listitem>
               <listitem>
                 <para>
-                  <varname>songs</varname>: number of albums
+                  <varname>albums</varname>: number of albums
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <varname>songs</varname>: number of songs
                 </para>
               </listitem>
               <listitem>
@@ -877,8 +882,8 @@
           <listitem>
             <para>
               Seeks to the position <varname>TIME</varname> (in
-              seconds) of entry <varname>SONGPOS</varname> in the
-              playlist.
+              seconds; fractions allowed) of entry
+              <varname>SONGPOS</varname> in the playlist.
             </para>
           </listitem>
         </varlistentry>
@@ -893,7 +898,8 @@
           <listitem>
             <para>
               Seeks to the position <varname>TIME</varname> (in
-              seconds) of song <varname>SONGID</varname>.
+              seconds; fractions allowed) of song
+              <varname>SONGID</varname>.
             </para>
           </listitem>
         </varlistentry>
@@ -907,9 +913,10 @@
           </term>
           <listitem>
             <para>
-              Seeks to the position <varname>TIME</varname> within the
-              current song.  If prefixed by '+' or '-', then the time
-              is relative to the current playing position.
+              Seeks to the position <varname>TIME</varname> (in
+              seconds; fractions allowed) within the current song.  If
+              prefixed by '+' or '-', then the time is relative to the
+              current playing position.
             </para>
           </listitem>
         </varlistentry>

@@ -175,9 +175,11 @@ handle_status(Client &client,
 			      COMMAND_STATUS_TIME ": %i:%i\n"
 			      "elapsed: %1.3f\n"
 			      COMMAND_STATUS_BITRATE ": %u\n",
-			      (int)(player_status.elapsed_time + 0.5),
-			      (int)(player_status.total_time + 0.5),
-			      player_status.elapsed_time,
+			      player_status.elapsed_time.RoundS(),
+			      player_status.total_time.IsNegative()
+			      ? 0u
+			      : unsigned(player_status.total_time.RoundS()),
+			      player_status.elapsed_time.ToDoubleS(),
 			      player_status.bit_rate);
 
 		if (player_status.audio_format.IsDefined()) {
@@ -300,11 +302,12 @@ handle_clearerror(gcc_unused Client &client,
 CommandResult
 handle_seek(Client &client, gcc_unused unsigned argc, char *argv[])
 {
-	unsigned song, seek_time;
+	unsigned song;
+	SongTime seek_time;
 
 	if (!check_unsigned(client, &song, argv[1]))
 		return CommandResult::ERROR;
-	if (!check_unsigned(client, &seek_time, argv[2]))
+	if (!ParseCommandArg(client, seek_time, argv[2]))
 		return CommandResult::ERROR;
 
 	PlaylistResult result =
@@ -315,11 +318,12 @@ handle_seek(Client &client, gcc_unused unsigned argc, char *argv[])
 CommandResult
 handle_seekid(Client &client, gcc_unused unsigned argc, char *argv[])
 {
-	unsigned id, seek_time;
+	unsigned id;
+	SongTime seek_time;
 
 	if (!check_unsigned(client, &id, argv[1]))
 		return CommandResult::ERROR;
-	if (!check_unsigned(client, &seek_time, argv[2]))
+	if (!ParseCommandArg(client, seek_time, argv[2]))
 		return CommandResult::ERROR;
 
 	PlaylistResult result =
@@ -332,8 +336,8 @@ handle_seekcur(Client &client, gcc_unused unsigned argc, char *argv[])
 {
 	const char *p = argv[1];
 	bool relative = *p == '+' || *p == '-';
-	int seek_time;
-	if (!check_int(client, &seek_time, p))
+	SignedSongTime seek_time;
+	if (!ParseCommandArg(client, seek_time, p))
 		return CommandResult::ERROR;
 
 	PlaylistResult result =

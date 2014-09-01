@@ -30,7 +30,7 @@ void
 decoder_initialized(Decoder &decoder,
 		    const AudioFormat audio_format,
 		    gcc_unused bool seekable,
-		    float duration)
+		    SignedSongTime duration)
 {
 	struct audio_format_string af_string;
 
@@ -39,7 +39,7 @@ decoder_initialized(Decoder &decoder,
 
 	fprintf(stderr, "audio_format=%s duration=%f\n",
 		audio_format_to_string(audio_format, &af_string),
-		duration);
+		duration.ToDoubleS());
 
 	decoder.initialized = true;
 }
@@ -55,16 +55,10 @@ decoder_command_finished(gcc_unused Decoder &decoder)
 {
 }
 
-double
-decoder_seek_where(gcc_unused Decoder &decoder)
+SongTime
+decoder_seek_time(gcc_unused Decoder &decoder)
 {
-	return 1.0;
-}
-
-unsigned
-decoder_seek_where_ms(gcc_unused Decoder &decoder)
-{
-	return 1;
+	return SongTime();
 }
 
 uint64_t

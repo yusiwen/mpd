@@ -17,8 +17,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_PLAYER_H
-#define MPD_PLAYER_H
+#ifndef MPD_PLAYER_CONTROL_HXX
+#define MPD_PLAYER_CONTROL_HXX
 
 #include "AudioFormat.hxx"
 #include "thread/Mutex.hxx"
@@ -26,6 +26,7 @@
 #include "thread/Thread.hxx"
 #include "util/Error.hxx"
 #include "CrossFade.hxx"
+#include "Chrono.hxx"
 
 #include <stdint.h>
 
@@ -88,8 +89,8 @@ struct player_status {
 	PlayerState state;
 	uint16_t bit_rate;
 	AudioFormat audio_format;
-	float total_time;
-	float elapsed_time;
+	SignedSongTime total_time;
+	SongTime elapsed_time;
 };
 
 struct PlayerControl {
@@ -97,9 +98,9 @@ struct PlayerControl {
 
 	MultipleOutputs &outputs;
 
-	unsigned buffer_chunks;
+	const unsigned buffer_chunks;
 
-	unsigned int buffered_before_play;
+	const unsigned buffered_before_play;
 
 	/**
 	 * The handle of the player thread.
@@ -150,8 +151,8 @@ struct PlayerControl {
 
 	uint16_t bit_rate;
 	AudioFormat audio_format;
-	float total_time;
-	float elapsed_time;
+	SignedSongTime total_time;
+	SongTime elapsed_time;
 
 	/**
 	 * The next queued song.
@@ -161,7 +162,7 @@ struct PlayerControl {
 	 */
 	DetachedSong *next_song;
 
-	double seek_where;
+	SongTime seek_time;
 
 	CrossFadeSettings cross_fade;
 
@@ -434,7 +435,7 @@ public:
 	 * @return true on success, false on failure (e.g. if MPD isn't
 	 * playing currently)
 	 */
-	bool Seek(DetachedSong *song, float seek_time);
+	bool Seek(DetachedSong *song, SongTime t);
 
 	void SetCrossFade(float cross_fade_seconds);
 
