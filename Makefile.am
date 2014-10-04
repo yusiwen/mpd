@@ -277,9 +277,10 @@ libmpd.so: $(filter %.a,$(src_mpd_LDADD)) libmain.a
 
 android/build/build.xml: android/AndroidManifest.xml
 	rm -rf android/build
-	mkdir -p android/build/include android/build/res
-	ln -s $(srcdir)/android/AndroidManifest.xml $(srcdir)/android/custom_rules.xml $(srcdir)/android/src android/build
-	ln -s $(srcdir)/android/res/values android/build/res
+	mkdir -p android/build/include android/build/res android/build/src/org
+	ln -s $(abs_srcdir)/android/AndroidManifest.xml $(abs_srcdir)/android/custom_rules.xml android/build
+	ln -s $(abs_srcdir)/android/src android/build/src/org/musicpd
+	ln -s $(abs_srcdir)/android/res/values android/build/res
 	$(ANDROID_SDK)/tools/android update project --path android/build --target android-17
 
 android/build/bin/classes/org/musicpd/Bridge.class: android/src/Bridge.java android/build/build.xml
@@ -370,10 +371,11 @@ libutil_a_SOURCES = \
 	src/util/SplitString.cxx src/util/SplitString.hxx \
 	src/util/FormatString.cxx src/util/FormatString.hxx \
 	src/util/Tokenizer.cxx src/util/Tokenizer.hxx \
+	src/util/TextFile.hxx \
 	src/util/UriUtil.cxx src/util/UriUtil.hxx \
 	src/util/Manual.hxx \
 	src/util/RefCount.hxx \
-	src/util/FifoBuffer.hxx \
+	src/util/StaticFifoBuffer.hxx \
 	src/util/ForeignFifoBuffer.hxx \
 	src/util/DynamicFifoBuffer.hxx \
 	src/util/ConstBuffer.hxx \
@@ -393,6 +395,7 @@ libutil_a_SOURCES = \
 libthread_a_SOURCES = \
 	src/thread/Util.hxx \
 	src/thread/Name.hxx \
+	src/thread/Slack.hxx \
 	src/thread/Mutex.hxx \
 	src/thread/PosixMutex.hxx \
 	src/thread/CriticalSection.hxx \
@@ -463,8 +466,6 @@ libpcm_a_SOURCES = \
 	src/pcm/PcmBuffer.cxx src/pcm/PcmBuffer.hxx \
 	src/pcm/PcmExport.cxx src/pcm/PcmExport.hxx \
 	src/pcm/PcmConvert.cxx src/pcm/PcmConvert.hxx \
-	src/pcm/dsd2pcm/dsd2pcm.c src/pcm/dsd2pcm/dsd2pcm.h \
-	src/pcm/PcmDsd.cxx src/pcm/PcmDsd.hxx \
 	src/pcm/PcmDop.cxx src/pcm/PcmDop.hxx \
 	src/pcm/Volume.cxx src/pcm/Volume.hxx \
 	src/pcm/PcmMix.cxx src/pcm/PcmMix.hxx \
@@ -492,6 +493,12 @@ PCM_LIBS = \
 	$(SOXR_LIBS) \
 	$(SAMPLERATE_LIBS)
 
+if ENABLE_DSD
+libpcm_a_SOURCES += \
+	src/pcm/PcmDsd.cxx src/pcm/PcmDsd.hxx \
+	src/pcm/dsd2pcm/dsd2pcm.c src/pcm/dsd2pcm/dsd2pcm.h
+endif
+
 if HAVE_LIBSAMPLERATE
 libpcm_a_SOURCES += \
 	src/pcm/LibsamplerateResampler.cxx src/pcm/LibsamplerateResampler.hxx
@@ -513,7 +520,7 @@ libfs_a_SOURCES = \
 	src/fs/io/BufferedReader.cxx src/fs/io/BufferedReader.hxx \
 	src/fs/io/TextFile.cxx src/fs/io/TextFile.hxx \
 	src/fs/io/OutputStream.hxx \
-	src/fs/io/StdoutOutputStream.hxx \
+	src/fs/io/StdioOutputStream.hxx \
 	src/fs/io/FileOutputStream.cxx src/fs/io/FileOutputStream.hxx \
 	src/fs/io/BufferedOutputStream.cxx src/fs/io/BufferedOutputStream.hxx \
 	src/fs/Domain.cxx src/fs/Domain.hxx \
@@ -548,6 +555,7 @@ SMBCLIENT_SOURCES = \
 NFS_SOURCES = \
 	src/lib/nfs/Callback.hxx \
 	src/lib/nfs/Cancellable.hxx \
+	src/lib/nfs/Lease.hxx \
 	src/lib/nfs/Connection.cxx src/lib/nfs/Connection.hxx \
 	src/lib/nfs/Manager.cxx src/lib/nfs/Manager.hxx \
 	src/lib/nfs/Glue.cxx src/lib/nfs/Glue.hxx \
@@ -576,13 +584,13 @@ STORAGE_LIBS = libstorage.a
 if ENABLE_SMBCLIENT
 libstorage_a_SOURCES += \
 	$(SMBCLIENT_SOURCES) \
-	src/storage/plugins/SmbclientStorage.cxx src/neighbor/plugins/SmbclientStorage.hxx
+	src/storage/plugins/SmbclientStorage.cxx src/storage/plugins/SmbclientStorage.hxx
 endif
 
 if ENABLE_NFS
 libstorage_a_SOURCES += \
 	$(NFS_SOURCES) \
-	src/storage/plugins/NfsStorage.cxx src/neighbor/plugins/NfsStorage.hxx
+	src/storage/plugins/NfsStorage.cxx src/storage/plugins/NfsStorage.hxx
 endif
 
 endif
@@ -765,6 +773,9 @@ libtag_a_SOURCES =\
 	src/tag/TagPool.cxx src/tag/TagPool.hxx \
 	src/tag/TagTable.cxx src/tag/TagTable.hxx \
 	src/tag/Set.cxx src/tag/Set.hxx \
+	src/tag/VorbisComment.cxx src/tag/VorbisComment.hxx \
+	src/tag/ReplayGain.cxx src/tag/ReplayGain.hxx \
+	src/tag/MixRamp.cxx src/tag/MixRamp.hxx \
 	src/tag/ApeLoader.cxx src/tag/ApeLoader.hxx \
 	src/tag/ApeReplayGain.cxx src/tag/ApeReplayGain.hxx \
 	src/tag/ApeTag.cxx src/tag/ApeTag.hxx
@@ -792,12 +803,6 @@ endif
 libdecoder_a_SOURCES = \
 	src/decoder/plugins/PcmDecoderPlugin.cxx \
 	src/decoder/plugins/PcmDecoderPlugin.hxx \
-	src/decoder/plugins/DsdiffDecoderPlugin.cxx \
-	src/decoder/plugins/DsdiffDecoderPlugin.hxx \
-	src/decoder/plugins/DsfDecoderPlugin.cxx \
-	src/decoder/plugins/DsfDecoderPlugin.hxx \
-	src/decoder/plugins/DsdLib.cxx \
-	src/decoder/plugins/DsdLib.hxx \
 	src/decoder/DecoderBuffer.cxx src/decoder/DecoderBuffer.hxx \
 	src/decoder/DecoderPlugin.cxx \
 	src/decoder/DecoderList.cxx src/decoder/DecoderList.hxx
@@ -840,6 +845,16 @@ DECODER_LIBS = \
 	$(MPCDEC_LIBS) \
 	$(ADPLUG_LIBS) \
 	$(FAAD_LIBS)
+
+if ENABLE_DSD
+libdecoder_a_SOURCES += \
+	src/decoder/plugins/DsdiffDecoderPlugin.cxx \
+	src/decoder/plugins/DsdiffDecoderPlugin.hxx \
+	src/decoder/plugins/DsfDecoderPlugin.cxx \
+	src/decoder/plugins/DsfDecoderPlugin.hxx \
+	src/decoder/plugins/DsdLib.cxx \
+	src/decoder/plugins/DsdLib.hxx
+endif
 
 if HAVE_MAD
 libdecoder_a_SOURCES += \
@@ -1091,6 +1106,7 @@ libinput_a_SOURCES = \
 	src/input/Init.cxx src/input/Init.hxx \
 	src/input/Registry.cxx src/input/Registry.hxx \
 	src/input/Open.cxx \
+	src/input/LocalOpen.cxx src/input/LocalOpen.hxx \
 	src/input/Offset.hxx \
 	src/input/InputStream.cxx src/input/InputStream.hxx \
 	src/input/InputPlugin.hxx \
@@ -1458,6 +1474,7 @@ C_TESTS = \
 	test/test_rewind \
 	test/test_mixramp \
 	test/test_pcm \
+	test/test_protocol \
 	test/test_queue_priority
 
 if ENABLE_CURL
@@ -2035,6 +2052,16 @@ test_test_translate_song_LDADD = \
 
 endif
 
+test_test_protocol_SOURCES = \
+	src/protocol/ArgParser.cxx \
+	test/test_protocol.cxx
+test_test_protocol_CPPFLAGS = $(AM_CPPFLAGS) $(CPPUNIT_CFLAGS) -DCPPUNIT_HAVE_RTTI=0
+test_test_protocol_CXXFLAGS = $(AM_CXXFLAGS) -Wno-error=deprecated-declarations
+test_test_protocol_LDADD = \
+	libsystem.a \
+	libutil.a \
+	$(CPPUNIT_LIBS)
+
 test_test_queue_priority_SOURCES = \
 	src/queue/Queue.cxx \
 	src/DetachedSong.cxx \
@@ -2046,6 +2073,8 @@ test_test_queue_priority_LDADD = \
 	libutil.a \
 	$(CPPUNIT_LIBS)
 
+if ENABLE_DSD
+
 noinst_PROGRAMS += src/pcm/dsd2pcm/dsd2pcm
 
 src_pcm_dsd2pcm_dsd2pcm_SOURCES = \
@@ -2055,6 +2084,8 @@ src_pcm_dsd2pcm_dsd2pcm_SOURCES = \
 	src/pcm/dsd2pcm/noiseshape.hpp \
 	src/pcm/dsd2pcm/main.cpp
 src_pcm_dsd2pcm_dsd2pcm_LDADD = libutil.a
+
+endif
 
 endif
 

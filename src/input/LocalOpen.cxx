@@ -18,54 +18,42 @@
  */
 
 #include "config.h"
-#include "DecoderBuffer.hxx"
-#include "DecoderAPI.hxx"
+#include "LocalOpen.hxx"
+#include "InputStream.hxx"
+#include "plugins/FileInputPlugin.hxx"
+
+#ifdef ENABLE_ARCHIVE
+#include "plugins/ArchiveInputPlugin.hxx"
+#endif
+
+#include "fs/Path.hxx"
+#include "util/Error.hxx"
 
 #include <assert.h>
 
-bool
-DecoderBuffer::Fill()
+#ifdef ENABLE_ARCHIVE
+#include <errno.h>
+#endif
+
+InputStream *
+OpenLocalInputStream(Path path, Mutex &mutex, Cond &cond, Error &error)
 {
-	auto w = buffer.Write();
-	if (w.IsEmpty())
-		/* buffer is full */
-		return false;
+	assert(!error.IsDefined());
 
-	size_t nbytes = decoder_read(decoder, is,
-				     w.data, w.size);
-	if (nbytes == 0)
-		/* end of file, I/O error or decoder command
-		   received */
-		return false;
-
-	buffer.Append(nbytes);
-	return true;
-}
-
-ConstBuffer<void>
-DecoderBuffer::Need(size_t min_size)
-{
-	while (true) {
-		const auto r = Read();
-		if (r.size >= min_size)
-			return r;
-
-		if (!Fill())
-			return nullptr;
+	InputStream *is = OpenFileInputStream(path, mutex, cond, error);
+#ifdef ENABLE_ARCHIVE
+	if (is == nullptr && error.IsDomain(errno_domain) &&
+	    error.GetCode() == ENOTDIR) {
+		/* ENOTDIR means this may be a path inside an archive
+		   file */
+		Error error2;
+		is = OpenArchiveInputStream(path, mutex, cond, error2);
+		if (is == nullptr && error2.IsDefined())
+			error = std::move(error2);
 	}
-}
+#endif
 
-bool
-DecoderBuffer::Skip(size_t nbytes)
-{
-	const auto r = buffer.Read();
-	if (r.size >= nbytes) {
-		buffer.Consume(nbytes);
-		return true;
-	}
+	assert(is == nullptr || is->IsReady());
 
-	buffer.Clear();
-	nbytes -= r.size;
-
-	return decoder_skip(decoder, is, nbytes);
+	return is;
 }

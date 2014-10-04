@@ -23,6 +23,7 @@
 #include "storage/StorageInterface.hxx"
 #include "storage/FileInfo.hxx"
 #include "lib/nfs/Domain.hxx"
+#include "fs/AllocatedPath.hxx"
 #include "util/Error.hxx"
 #include "thread/Mutex.hxx"
 
@@ -37,10 +38,16 @@ extern "C" {
 class NfsDirectoryReader final : public StorageDirectoryReader {
 	const std::string base;
 
-	nfs_context *ctx;
-	nfsdir *dir;
+	nfs_context *const ctx;
+	nfsdir *const dir;
 
 	nfsdirent *ent;
+
+	/**
+	 * Buffer for Read() which holds the current file name
+	 * converted to UTF-8.
+	 */
+	std::string name_utf8;
 
 public:
 	NfsDirectoryReader(const char *_base, nfs_context *_ctx, nfsdir *_dir)
@@ -49,15 +56,14 @@ public:
 	virtual ~NfsDirectoryReader();
 
 	/* virtual methods from class StorageDirectoryReader */
-	virtual const char *Read() override;
-	virtual bool GetInfo(bool follow, FileInfo &info,
-			     Error &error) override;
+	const char *Read() override;
+	bool GetInfo(bool follow, FileInfo &info, Error &error) override;
 };
 
 class NfsStorage final : public Storage {
 	const std::string base;
 
-	nfs_context *ctx;
+	nfs_context *const ctx;
 
 public:
 	NfsStorage(const char *_base, nfs_context *_ctx)
@@ -68,16 +74,28 @@ public:
 	}
 
 	/* virtual methods from class Storage */
-	virtual bool GetInfo(const char *uri_utf8, bool follow, FileInfo &info,
-			     Error &error) override;
+	bool GetInfo(const char *uri_utf8, bool follow, FileInfo &info,
+		     Error &error) override;
 
-	virtual StorageDirectoryReader *OpenDirectory(const char *uri_utf8,
-						      Error &error) override;
+	StorageDirectoryReader *OpenDirectory(const char *uri_utf8,
+					      Error &error) override;
 
-	virtual std::string MapUTF8(const char *uri_utf8) const override;
+	std::string MapUTF8(const char *uri_utf8) const override;
 
-	virtual const char *MapToRelativeUTF8(const char *uri_utf8) const override;
+	const char *MapToRelativeUTF8(const char *uri_utf8) const override;
 };
+
+static std::string
+UriToNfsPath(const char *_uri_utf8, Error &error)
+{
+	assert(_uri_utf8 != nullptr);
+
+	/* libnfs paths must begin with a slash */
+	std::string uri_utf8("/");
+	uri_utf8.append(_uri_utf8);
+
+	return AllocatedPath::FromUTF8(uri_utf8.c_str(), error).Steal();
+}
 
 std::string
 NfsStorage::MapUTF8(const char *uri_utf8) const
@@ -124,9 +142,9 @@ bool
 NfsStorage::GetInfo(const char *uri_utf8, gcc_unused bool follow,
 		    FileInfo &info, Error &error)
 {
-	/* libnfs paths must begin with a slash */
-	std::string path(uri_utf8);
-	path.insert(path.begin(), '/');
+	const std::string path = UriToNfsPath(uri_utf8, error);
+	if (path.empty())
+		return false;
 
 	return ::GetInfo(ctx, path.c_str(), info, error);
 }
@@ -134,9 +152,9 @@ NfsStorage::GetInfo(const char *uri_utf8, gcc_unused bool follow,
 StorageDirectoryReader *
 NfsStorage::OpenDirectory(const char *uri_utf8, Error &error)
 {
-	/* libnfs paths must begin with a slash */
-	std::string path(uri_utf8);
-	path.insert(path.begin(), '/');
+	const std::string path = UriToNfsPath(uri_utf8, error);
+	if (path.empty())
+		return nullptr;
 
 	nfsdir *dir;
 	int result = nfs_opendir(ctx, path.c_str(), &dir);
@@ -166,8 +184,17 @@ const char *
 NfsDirectoryReader::Read()
 {
 	while ((ent = nfs_readdir(ctx, dir)) != nullptr) {
-		if (!SkipNameFS(ent->name))
-			return ent->name;
+		const Path name_fs = Path::FromFS(ent->name);
+		if (SkipNameFS(name_fs.c_str()))
+			continue;
+
+		name_utf8 = name_fs.ToUTF8();
+		if (name_utf8.empty())
+			/* ignore files whose name cannot be converted
+			   to UTF-8 */
+			continue;
+
+		return name_utf8.c_str();
 	}
 
 	return nullptr;

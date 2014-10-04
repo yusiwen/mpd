@@ -22,9 +22,9 @@
 #include "Lease.hxx"
 #include "Domain.hxx"
 #include "Callback.hxx"
+#include "event/Loop.hxx"
 #include "system/fd_util.h"
 #include "util/Error.hxx"
-#include "event/Call.hxx"
 
 extern "C" {
 #include <nfsc/libnfs.h>
@@ -81,9 +81,22 @@ NfsConnection::CancellableCallback::Read(nfs_context *ctx, struct nfsfh *fh,
 }
 
 inline void
+NfsConnection::CancellableCallback::CancelAndScheduleClose(struct nfsfh *fh)
+{
+	assert(!open);
+	assert(close_fh == nullptr);
+	assert(fh != nullptr);
+
+	close_fh = fh;
+	Cancel();
+}
+
+inline void
 NfsConnection::CancellableCallback::Callback(int err, void *data)
 {
 	if (!IsCancelled()) {
+		assert(close_fh == nullptr);
+
 		NfsCallback &cb = Get();
 
 		connection.callbacks.Remove(*this);
@@ -94,6 +107,17 @@ NfsConnection::CancellableCallback::Callback(int err, void *data)
 			cb.OnNfsError(Error(nfs_domain, err,
 					    (const char *)data));
 	} else {
+		if (open) {
+			/* a nfs_open_async() call was cancelled - to
+			   avoid a memory leak, close the newly
+			   allocated file handle immediately */
+			assert(close_fh == nullptr);
+
+			struct nfsfh *fh = (struct nfsfh *)data;
+			connection.Close(fh);
+		} else if (close_fh != nullptr)
+			connection.DeferClose(close_fh);
+
 		connection.callbacks.Remove(*this);
 	}
 }
@@ -123,23 +147,22 @@ events_to_libnfs(unsigned i)
 
 NfsConnection::~NfsConnection()
 {
+	assert(GetEventLoop().IsInside());
 	assert(new_leases.empty());
 	assert(active_leases.empty());
 	assert(callbacks.IsEmpty());
+	assert(deferred_close.empty());
 
 	if (context != nullptr)
-		BlockingCall(SocketMonitor::GetEventLoop(), [this](){
-				DestroyContext();
-			});
+		DestroyContext();
 }
 
 void
 NfsConnection::AddLease(NfsLease &lease)
 {
-	{
-		const ScopeLock protect(mutex);
-		new_leases.push_back(&lease);
-	}
+	assert(GetEventLoop().IsInside());
+
+	new_leases.push_back(&lease);
 
 	DeferredMonitor::Schedule();
 }
@@ -147,7 +170,7 @@ NfsConnection::AddLease(NfsLease &lease)
 void
 NfsConnection::RemoveLease(NfsLease &lease)
 {
-	const ScopeLock protect(mutex);
+	assert(GetEventLoop().IsInside());
 
 	new_leases.remove(&lease);
 	active_leases.remove(&lease);
@@ -159,9 +182,9 @@ NfsConnection::Open(const char *path, int flags, NfsCallback &callback,
 {
 	assert(!callbacks.Contains(callback));
 
-	auto &c = callbacks.Add(callback, *this);
+	auto &c = callbacks.Add(callback, *this, true);
 	if (!c.Open(context, path, flags, error)) {
-		callbacks.RemoveLast();
+		callbacks.Remove(c);
 		return false;
 	}
 
@@ -174,9 +197,9 @@ NfsConnection::Stat(struct nfsfh *fh, NfsCallback &callback, Error &error)
 {
 	assert(!callbacks.Contains(callback));
 
-	auto &c = callbacks.Add(callback, *this);
+	auto &c = callbacks.Add(callback, *this, false);
 	if (!c.Stat(context, fh, error)) {
-		callbacks.RemoveLast();
+		callbacks.Remove(c);
 		return false;
 	}
 
@@ -190,9 +213,9 @@ NfsConnection::Read(struct nfsfh *fh, uint64_t offset, size_t size,
 {
 	assert(!callbacks.Contains(callback));
 
-	auto &c = callbacks.Add(callback, *this);
+	auto &c = callbacks.Add(callback, *this, false);
 	if (!c.Read(context, fh, offset, size, error)) {
-		callbacks.RemoveLast();
+		callbacks.Remove(c);
 		return false;
 	}
 
@@ -219,8 +242,16 @@ NfsConnection::Close(struct nfsfh *fh)
 }
 
 void
+NfsConnection::CancelAndClose(struct nfsfh *fh, NfsCallback &callback)
+{
+	CancellableCallback &cancel = callbacks.Get(callback);
+	cancel.CancelAndScheduleClose(fh);
+}
+
+void
 NfsConnection::DestroyContext()
 {
+	assert(GetEventLoop().IsInside());
 	assert(context != nullptr);
 
 	if (SocketMonitor::IsDefined())
@@ -228,6 +259,15 @@ NfsConnection::DestroyContext()
 
 	nfs_destroy_context(context);
 	context = nullptr;
+}
+
+inline void
+NfsConnection::DeferClose(struct nfsfh *fh)
+{
+	assert(in_event);
+	assert(in_service);
+
+	deferred_close.push_front(fh);
 }
 
 void
@@ -250,6 +290,8 @@ NfsConnection::ScheduleSocket()
 bool
 NfsConnection::OnSocketReady(unsigned flags)
 {
+	assert(deferred_close.empty());
+
 	bool closed = false;
 
 	const bool was_mounted = mount_finished;
@@ -264,7 +306,6 @@ NfsConnection::OnSocketReady(unsigned flags)
 
 	assert(!in_service);
 	in_service = true;
-	postponed_destroy = false;
 
 	int result = nfs_service(context, events_to_libnfs(flags));
 
@@ -272,16 +313,13 @@ NfsConnection::OnSocketReady(unsigned flags)
 	assert(in_service);
 	in_service = false;
 
-	if (postponed_destroy) {
-		/* somebody has called nfs_client_free() while we were inside
-		   nfs_service() */
-		const ScopeLock protect(mutex);
-		DestroyContext();
-		closed = true;
-		// TODO? nfs_client_cleanup_files(client);
-	} else if (!was_mounted && mount_finished) {
-		const ScopeLock protect(mutex);
+	while (!deferred_close.empty()) {
+		nfs_close_async(context, deferred_close.front(),
+				DummyCallback, nullptr);
+		deferred_close.pop_front();
+	}
 
+	if (!was_mounted && mount_finished) {
 		if (postponed_mount_error.IsDefined()) {
 			DestroyContext();
 			closed = true;
@@ -293,8 +331,6 @@ NfsConnection::OnSocketReady(unsigned flags)
 		Error error;
 		error.Format(nfs_domain, "NFS connection has failed: %s",
 			     nfs_get_error(context));
-
-		const ScopeLock protect(mutex);
 
 		DestroyContext();
 		closed = true;
@@ -311,8 +347,6 @@ NfsConnection::OnSocketReady(unsigned flags)
 		else
 			error.Format(nfs_domain,
 				     "NFS socket disappeared: %s", msg);
-
-		const ScopeLock protect(mutex);
 
 		DestroyContext();
 		closed = true;
@@ -388,6 +422,8 @@ NfsConnection::MountInternal(Error &error)
 void
 NfsConnection::BroadcastMountSuccess()
 {
+	assert(GetEventLoop().IsInside());
+
 	while (!new_leases.empty()) {
 		auto i = new_leases.begin();
 		active_leases.splice(active_leases.end(), new_leases, i);
@@ -398,6 +434,8 @@ NfsConnection::BroadcastMountSuccess()
 void
 NfsConnection::BroadcastMountError(Error &&error)
 {
+	assert(GetEventLoop().IsInside());
+
 	while (!new_leases.empty()) {
 		auto l = new_leases.front();
 		new_leases.pop_front();
@@ -410,6 +448,8 @@ NfsConnection::BroadcastMountError(Error &&error)
 void
 NfsConnection::BroadcastError(Error &&error)
 {
+	assert(GetEventLoop().IsInside());
+
 	while (!active_leases.empty()) {
 		auto l = active_leases.front();
 		active_leases.pop_front();
@@ -425,14 +465,11 @@ NfsConnection::RunDeferred()
 	{
 		Error error;
 		if (!MountInternal(error)) {
-			const ScopeLock protect(mutex);
 			BroadcastMountError(std::move(error));
 			return;
 		}
 	}
 
-	if (mount_finished) {
-		const ScopeLock protect(mutex);
+	if (mount_finished)
 		BroadcastMountSuccess();
-	}
 }

@@ -18,41 +18,24 @@
  */
 
 #include "config.h"
-#include "Glue.hxx"
-#include "Manager.hxx"
-#include "IOThread.hxx"
-#include "event/Call.hxx"
-#include "util/Manual.hxx"
+#include "VorbisComment.hxx"
+#include "util/ASCII.hxx"
 
 #include <assert.h>
+#include <string.h>
 
-static Manual<NfsManager> nfs_glue;
-static unsigned in_use;
-
-void
-nfs_init()
+const char *
+vorbis_comment_value(const char *entry, const char *name)
 {
-	if (in_use++ > 0)
-		return;
+	assert(entry != nullptr);
+	assert(name != nullptr);
+	assert(*name != 0);
 
-	nfs_glue.Construct(io_thread_get());
-}
+	const size_t length = strlen(name);
 
-void
-nfs_finish()
-{
-	assert(in_use > 0);
+	if (StringEqualsCaseASCII(entry, name, length) &&
+	    entry[length] == '=')
+		return entry + length + 1;
 
-	if (--in_use > 0)
-		return;
-
-	BlockingCall(io_thread_get(), [](){ nfs_glue.Destruct(); });
-}
-
-NfsConnection &
-nfs_get_connection(const char *server, const char *export_name)
-{
-	assert(io_thread_inside());
-
-	return nfs_glue->GetConnection(server, export_name);
+	return nullptr;
 }

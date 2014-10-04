@@ -17,42 +17,17 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-#include "Glue.hxx"
-#include "Manager.hxx"
-#include "IOThread.hxx"
-#include "event/Call.hxx"
-#include "util/Manual.hxx"
+#ifndef MPD_TAG_MIXRAMP_HXX
+#define MPD_TAG_MIXRAMP_HXX
 
-#include <assert.h>
+#include "check.h"
 
-static Manual<NfsManager> nfs_glue;
-static unsigned in_use;
+class MixRampInfo;
 
-void
-nfs_init()
-{
-	if (in_use++ > 0)
-		return;
+bool
+ParseMixRampTag(MixRampInfo &info, const char *name, const char *value);
 
-	nfs_glue.Construct(io_thread_get());
-}
+bool
+ParseMixRampVorbis(MixRampInfo &info, const char *entry);
 
-void
-nfs_finish()
-{
-	assert(in_use > 0);
-
-	if (--in_use > 0)
-		return;
-
-	BlockingCall(io_thread_get(), [](){ nfs_glue.Destruct(); });
-}
-
-NfsConnection &
-nfs_get_connection(const char *server, const char *export_name)
-{
-	assert(io_thread_inside());
-
-	return nfs_glue->GetConnection(server, export_name);
-}
+#endif

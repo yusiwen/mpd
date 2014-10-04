@@ -17,42 +17,18 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-#include "Glue.hxx"
-#include "Manager.hxx"
-#include "IOThread.hxx"
-#include "event/Call.hxx"
-#include "util/Manual.hxx"
+#ifndef MPD_TAG_VORBIS_COMMENT_HXX
+#define MPD_TAG_VORBIS_COMMENT_HXX
 
-#include <assert.h>
+#include "check.h"
+#include "Compiler.h"
 
-static Manual<NfsManager> nfs_glue;
-static unsigned in_use;
+/**
+ * Checks if the specified name matches the entry's name, and if yes,
+ * returns the comment value.
+ */
+gcc_pure
+const char *
+vorbis_comment_value(const char *entry, const char *name);
 
-void
-nfs_init()
-{
-	if (in_use++ > 0)
-		return;
-
-	nfs_glue.Construct(io_thread_get());
-}
-
-void
-nfs_finish()
-{
-	assert(in_use > 0);
-
-	if (--in_use > 0)
-		return;
-
-	BlockingCall(io_thread_get(), [](){ nfs_glue.Destruct(); });
-}
-
-NfsConnection &
-nfs_get_connection(const char *server, const char *export_name)
-{
-	assert(io_thread_inside());
-
-	return nfs_glue->GetConnection(server, export_name);
-}
+#endif

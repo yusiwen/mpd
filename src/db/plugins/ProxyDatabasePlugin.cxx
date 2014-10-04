@@ -166,6 +166,10 @@ static constexpr struct {
 	{ TAG_MUSICBRAINZ_ALBUMARTISTID,
 	  MPD_TAG_MUSICBRAINZ_ALBUMARTISTID },
 	{ TAG_MUSICBRAINZ_TRACKID, MPD_TAG_MUSICBRAINZ_TRACKID },
+#if LIBMPDCLIENT_CHECK_VERSION(2,10,0)
+	{ TAG_MUSICBRAINZ_RELEASETRACKID,
+	  MPD_TAG_MUSICBRAINZ_RELEASETRACKID },
+#endif
 	{ TAG_NUM_OF_ITEM_TYPES, MPD_TAG_COUNT }
 };
 
@@ -779,6 +783,15 @@ ProxyDatabase::VisitUniqueTags(const DatabaseSelection &selection,
 	       (pair = mpd_recv_pair_tag(connection, tag_type2)) != nullptr) {
 		TagBuilder tag;
 		tag.AddItem(tag_type, pair->value);
+
+		if (tag.IsEmpty())
+			/* if no tag item has been added, then the
+			   given value was not acceptable
+			   (e.g. empty); forcefully insert an empty
+			   tag in this case, as the caller expects the
+			   given tag type to be present */
+			tag.AddEmptyItem(tag_type);
+
 		result = visit_tag(tag.Commit(), error);
 		mpd_return_pair(connection, pair);
 	}

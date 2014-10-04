@@ -17,42 +17,22 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-#include "Glue.hxx"
-#include "Manager.hxx"
-#include "IOThread.hxx"
-#include "event/Call.hxx"
-#include "util/Manual.hxx"
+#ifndef MPD_INPUT_LOCAL_OPEN_HXX
+#define MPD_INPUT_LOCAL_OPEN_HXX
 
-#include <assert.h>
+#include "check.h"
 
-static Manual<NfsManager> nfs_glue;
-static unsigned in_use;
+class InputStream;
+class Path;
+class Mutex;
+class Cond;
+class Error;
 
-void
-nfs_init()
-{
-	if (in_use++ > 0)
-		return;
+/**
+ * Open a "local" file.  This is a wrapper for the input plugins
+ * "file" and "archive".
+ */
+InputStream *
+OpenLocalInputStream(Path path, Mutex &mutex, Cond &cond, Error &error);
 
-	nfs_glue.Construct(io_thread_get());
-}
-
-void
-nfs_finish()
-{
-	assert(in_use > 0);
-
-	if (--in_use > 0)
-		return;
-
-	BlockingCall(io_thread_get(), [](){ nfs_glue.Destruct(); });
-}
-
-NfsConnection &
-nfs_get_connection(const char *server, const char *export_name)
-{
-	assert(io_thread_inside());
-
-	return nfs_glue->GetConnection(server, export_name);
-}
+#endif

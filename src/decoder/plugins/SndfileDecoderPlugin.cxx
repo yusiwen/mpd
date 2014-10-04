@@ -23,7 +23,6 @@
 #include "input/InputStream.hxx"
 #include "CheckAudioFormat.hxx"
 #include "tag/TagHandler.hxx"
-#include "fs/Path.hxx"
 #include "util/Error.hxx"
 #include "util/Domain.hxx"
 #include "Log.hxx"
@@ -146,6 +145,45 @@ sndfile_duration(const SF_INFO &info)
 	return SongTime::FromScale<uint64_t>(info.frames, info.samplerate);
 }
 
+gcc_pure
+static SampleFormat
+sndfile_sample_format(const SF_INFO &info)
+{
+	switch (info.format & SF_FORMAT_SUBMASK) {
+	case SF_FORMAT_PCM_S8:
+	case SF_FORMAT_PCM_U8:
+	case SF_FORMAT_PCM_16:
+		return SampleFormat::S16;
+
+	case SF_FORMAT_FLOAT:
+	case SF_FORMAT_DOUBLE:
+		return SampleFormat::FLOAT;
+
+	default:
+		return SampleFormat::S32;
+	}
+}
+
+static sf_count_t
+sndfile_read_frames(SNDFILE *sf, SampleFormat format,
+		    void *buffer, sf_count_t n_frames)
+{
+	switch (format) {
+	case SampleFormat::S16:
+		return sf_readf_short(sf, (short *)buffer, n_frames);
+
+	case SampleFormat::S32:
+		return sf_readf_int(sf, (int *)buffer, n_frames);
+
+	case SampleFormat::FLOAT:
+		return sf_readf_float(sf, (float *)buffer, n_frames);
+
+	default:
+		assert(false);
+		gcc_unreachable();
+	}
+}
+
 static void
 sndfile_stream_decode(Decoder &decoder, InputStream &is)
 {
@@ -156,17 +194,15 @@ sndfile_stream_decode(Decoder &decoder, InputStream &is)
 	SndfileInputStream sis{&decoder, is};
 	SNDFILE *const sf = sf_open_virtual(&vio, SFM_READ, &info, &sis);
 	if (sf == nullptr) {
-		LogWarning(sndfile_domain, "sf_open_virtual() failed");
+		FormatWarning(sndfile_domain, "sf_open_virtual() failed: %s",
+			      sf_strerror(nullptr));
 		return;
 	}
 
-	/* for now, always read 32 bit samples.  Later, we could lower
-	   MPD's CPU usage by reading 16 bit samples with
-	   sf_readf_short() on low-quality source files. */
 	Error error;
 	AudioFormat audio_format;
 	if (!audio_format_init_checked(audio_format, info.samplerate,
-				       SampleFormat::S32,
+				       sndfile_sample_format(info),
 				       info.channels, error)) {
 		LogError(error);
 		return;
@@ -175,14 +211,17 @@ sndfile_stream_decode(Decoder &decoder, InputStream &is)
 	decoder_initialized(decoder, audio_format, info.seekable,
 			    sndfile_duration(info));
 
-	int buffer[4096];
+	char buffer[16384];
 
 	const size_t frame_size = audio_format.GetFrameSize();
 	const sf_count_t read_frames = sizeof(buffer) / frame_size;
 
 	DecoderCommand cmd;
 	do {
-		sf_count_t num_frames = sf_readf_int(sf, buffer, read_frames);
+		sf_count_t num_frames =
+			sndfile_read_frames(sf,
+					    audio_format.format,
+					    buffer, read_frames);
 		if (num_frames <= 0)
 			break;
 

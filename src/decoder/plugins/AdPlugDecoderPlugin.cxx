@@ -24,6 +24,7 @@
 #include "CheckAudioFormat.hxx"
 #include "fs/Path.hxx"
 #include "util/Error.hxx"
+#include "util/Domain.hxx"
 #include "util/Macros.hxx"
 #include "Log.hxx"
 
@@ -32,11 +33,16 @@
 
 #include <assert.h>
 
+static constexpr Domain adplug_domain("adplug");
+
 static unsigned sample_rate;
 
 static bool
 adplug_init(const config_param &param)
 {
+	FormatDebug(adplug_domain, "adplug %s",
+		    CAdPlug::get_version().c_str());
+
 	Error error;
 
 	sample_rate = param.GetBlockValue("sample_rate", 48000u);
@@ -64,14 +70,14 @@ adplug_file_decode(Decoder &decoder, Path path_fs)
 	decoder_initialized(decoder, audio_format, false,
 			    SongTime::FromMS(player->songlength()));
 
-	int16_t buffer[2048];
-	const unsigned frames_per_buffer = ARRAY_SIZE(buffer) / 2;
 	DecoderCommand cmd;
 
 	do {
 		if (!player->update())
 			break;
 
+		int16_t buffer[2048];
+		constexpr unsigned frames_per_buffer = ARRAY_SIZE(buffer) / 2;
 		opl.update(buffer, frames_per_buffer);
 		cmd = decoder_data(decoder, nullptr,
 				   buffer, sizeof(buffer),

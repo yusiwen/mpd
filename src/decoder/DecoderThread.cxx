@@ -25,10 +25,12 @@
 #include "DecoderPlugin.hxx"
 #include "DetachedSong.hxx"
 #include "system/FatalError.hxx"
+#include "MusicPipe.hxx"
 #include "fs/Traits.hxx"
 #include "fs/AllocatedPath.hxx"
 #include "DecoderAPI.hxx"
 #include "input/InputStream.hxx"
+#include "input/LocalOpen.hxx"
 #include "DecoderList.hxx"
 #include "util/UriUtil.hxx"
 #include "util/Error.hxx"
@@ -102,6 +104,22 @@ decoder_input_stream_open(DecoderControl &dc, const char *uri)
 	}
 
 	dc.Unlock();
+
+	return is;
+}
+
+static InputStream *
+decoder_input_stream_open(DecoderControl &dc, Path path)
+{
+	Error error;
+
+	InputStream *is = OpenLocalInputStream(path, dc.mutex, dc.cond, error);
+	if (is == nullptr) {
+		LogError(error);
+		return nullptr;
+	}
+
+	assert(is->IsReady());
 
 	return is;
 }
@@ -307,7 +325,7 @@ TryDecoderFile(Decoder &decoder, Path path_fs, const char *suffix,
 		dc.Unlock();
 	} else if (plugin.stream_decode != nullptr) {
 		InputStream *input_stream =
-			decoder_input_stream_open(dc, path_fs.c_str());
+			decoder_input_stream_open(dc, path_fs);
 		if (input_stream == nullptr)
 			return false;
 
@@ -449,9 +467,18 @@ decoder_task(void *arg)
 			dc.replay_gain_prev_db = dc.replay_gain_db;
 			dc.replay_gain_db = 0;
 
-			/* fall through */
+			decoder_run(dc);
+			break;
 
 		case DecoderCommand::SEEK:
+			/* this seek was too late, and the decoder had
+			   already finished; start a new decoder */
+
+			/* we need to clear the pipe here; usually the
+			   PlayerThread is responsible, but it is not
+			   aware that the decoder has finished */
+			dc.pipe->Clear(*dc.buffer);
+
 			decoder_run(dc);
 			break;
 
