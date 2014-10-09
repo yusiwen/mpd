@@ -17,20 +17,20 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_STORAGE_PLUGIN_HXX
-#define MPD_STORAGE_PLUGIN_HXX
+#ifndef MPD_SCOPE_IO_THREAD_HXX
+#define MPD_SCOPE_IO_THREAD_HXX
 
-#include "check.h"
+#include "IOThread.hxx"
 
-class Error;
-class Storage;
-class EventLoop;
+struct ScopeIOThread {
+	ScopeIOThread() {
+		io_thread_init();
+		io_thread_start();
+	}
 
-struct StoragePlugin {
-	const char *name;
-
-	Storage *(*create_uri)(EventLoop &event_loop, const char *uri,
-			       Error &error);
+	~ScopeIOThread() {
+		io_thread_deinit();
+	}
 };
 
 #endif

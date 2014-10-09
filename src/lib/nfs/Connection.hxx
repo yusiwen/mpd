@@ -33,6 +33,8 @@
 #include <forward_list>
 
 struct nfs_context;
+struct nfsdir;
+struct nfsdirent;
 class NfsCallback;
 
 /**
@@ -64,6 +66,10 @@ class NfsConnection : SocketMonitor, DeferredMonitor {
 			 connection(_connection),
 			 open(_open), close_fh(nullptr) {}
 
+		bool Stat(nfs_context *context, const char *path,
+			  Error &error);
+		bool OpenDirectory(nfs_context *context, const char *path,
+				   Error &error);
 		bool Open(nfs_context *context, const char *path, int flags,
 			  Error &error);
 		bool Stat(nfs_context *context, struct nfsfh *fh,
@@ -141,6 +147,10 @@ public:
 		return export_name.c_str();
 	}
 
+	EventLoop &GetEventLoop() {
+		return SocketMonitor::GetEventLoop();
+	}
+
 	/**
 	 * Ensure that the connection is established.  The connection
 	 * is kept up while at least one #NfsLease is registered.
@@ -150,6 +160,13 @@ public:
 	 */
 	void AddLease(NfsLease &lease);
 	void RemoveLease(NfsLease &lease);
+
+	bool Stat(const char *path, NfsCallback &callback, Error &error);
+
+	bool OpenDirectory(const char *path, NfsCallback &callback,
+			   Error &error);
+	const struct nfsdirent *ReadDirectory(struct nfsdir *dir);
+	void CloseDirectory(struct nfsdir *dir);
 
 	bool Open(const char *path, int flags, NfsCallback &callback,
 		  Error &error);
@@ -165,10 +182,6 @@ protected:
 	virtual void OnNfsConnectionError(Error &&error) = 0;
 
 private:
-	EventLoop &GetEventLoop() {
-		return SocketMonitor::GetEventLoop();
-	}
-
 	void DestroyContext();
 
 	/**

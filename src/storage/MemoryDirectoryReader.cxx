@@ -17,20 +17,32 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_STORAGE_PLUGIN_HXX
-#define MPD_STORAGE_PLUGIN_HXX
+#include "config.h"
+#include "MemoryDirectoryReader.hxx"
 
-#include "check.h"
+#include <assert.h>
 
-class Error;
-class Storage;
-class EventLoop;
+const char *
+MemoryStorageDirectoryReader::Read()
+{
+	if (first)
+		first = false;
+	else
+		entries.pop_front();
 
-struct StoragePlugin {
-	const char *name;
+	if (entries.empty())
+		return nullptr;
 
-	Storage *(*create_uri)(EventLoop &event_loop, const char *uri,
-			       Error &error);
-};
+	return entries.front().name.c_str();
+}
 
-#endif
+bool
+MemoryStorageDirectoryReader::GetInfo(gcc_unused bool follow, FileInfo &info,
+				      gcc_unused Error &error)
+{
+	assert(!first);
+	assert(!entries.empty());
+
+	info = entries.front().info;
+	return true;
+}

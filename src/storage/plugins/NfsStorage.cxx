@@ -22,7 +22,9 @@
 #include "storage/StoragePlugin.hxx"
 #include "storage/StorageInterface.hxx"
 #include "storage/FileInfo.hxx"
+#include "storage/MemoryDirectoryReader.hxx"
 #include "lib/nfs/Domain.hxx"
+#include "lib/nfs/Base.hxx"
 #include "fs/AllocatedPath.hxx"
 #include "util/Error.hxx"
 #include "thread/Mutex.hxx"
@@ -34,31 +36,6 @@ extern "C" {
 
 #include <sys/stat.h>
 #include <fcntl.h>
-
-class NfsDirectoryReader final : public StorageDirectoryReader {
-	const std::string base;
-
-	nfs_context *const ctx;
-	nfsdir *const dir;
-
-	nfsdirent *ent;
-
-	/**
-	 * Buffer for Read() which holds the current file name
-	 * converted to UTF-8.
-	 */
-	std::string name_utf8;
-
-public:
-	NfsDirectoryReader(const char *_base, nfs_context *_ctx, nfsdir *_dir)
-		:base(_base), ctx(_ctx), dir(_dir) {}
-
-	virtual ~NfsDirectoryReader();
-
-	/* virtual methods from class StorageDirectoryReader */
-	const char *Read() override;
-	bool GetInfo(bool follow, FileInfo &info, Error &error) override;
-};
 
 class NfsStorage final : public Storage {
 	const std::string base;
@@ -114,16 +91,9 @@ NfsStorage::MapToRelativeUTF8(const char *uri_utf8) const
 	return PathTraitsUTF8::Relative(base.c_str(), uri_utf8);
 }
 
-static bool
-GetInfo(nfs_context *ctx, const char *path, FileInfo &info, Error &error)
+static void
+Copy(FileInfo &info, const struct stat &st)
 {
-	struct stat st;
-	int result = nfs_stat(ctx, path, &st);
-	if (result < 0) {
-		error.SetErrno(-result, "nfs_stat() failed");
-		return false;
-	}
-
 	if (S_ISREG(st.st_mode))
 		info.type = FileInfo::Type::REGULAR;
 	else if (S_ISDIR(st.st_mode))
@@ -135,6 +105,19 @@ GetInfo(nfs_context *ctx, const char *path, FileInfo &info, Error &error)
 	info.mtime = st.st_mtime;
 	info.device = st.st_dev;
 	info.inode = st.st_ino;
+}
+
+static bool
+GetInfo(nfs_context *ctx, const char *path, FileInfo &info, Error &error)
+{
+	struct stat st;
+	int result = nfs_stat(ctx, path, &st);
+	if (result < 0) {
+		error.SetErrno(-result, "nfs_stat() failed");
+		return false;
+	}
+
+	Copy(info, st);
 	return true;
 }
 
@@ -147,6 +130,38 @@ NfsStorage::GetInfo(const char *uri_utf8, gcc_unused bool follow,
 		return false;
 
 	return ::GetInfo(ctx, path.c_str(), info, error);
+}
+
+gcc_pure
+static bool
+SkipNameFS(const char *name)
+{
+	return name[0] == '.' &&
+		(name[1] == 0 ||
+		 (name[1] == '.' && name[2] == 0));
+}
+
+static void
+Copy(FileInfo &info, const struct nfsdirent &ent)
+{
+	switch (ent.type) {
+	case NF3REG:
+		info.type = FileInfo::Type::REGULAR;
+		break;
+
+	case NF3DIR:
+		info.type = FileInfo::Type::DIRECTORY;
+		break;
+
+	default:
+		info.type = FileInfo::Type::OTHER;
+		break;
+	}
+
+	info.size = ent.size;
+	info.mtime = ent.mtime.tv_sec;
+	info.device = 0;
+	info.inode = ent.inode;
 }
 
 StorageDirectoryReader *
@@ -163,72 +178,33 @@ NfsStorage::OpenDirectory(const char *uri_utf8, Error &error)
 		return nullptr;
 	}
 
-	return new NfsDirectoryReader(uri_utf8, ctx, dir);
-}
+	MemoryStorageDirectoryReader::List entries;
 
-gcc_pure
-static bool
-SkipNameFS(const char *name)
-{
-	return name[0] == '.' &&
-		(name[1] == 0 ||
-		 (name[1] == '.' && name[2] == 0));
-}
-
-NfsDirectoryReader::~NfsDirectoryReader()
-{
-	nfs_closedir(ctx, dir);
-}
-
-const char *
-NfsDirectoryReader::Read()
-{
+	const struct nfsdirent *ent;
 	while ((ent = nfs_readdir(ctx, dir)) != nullptr) {
 		const Path name_fs = Path::FromFS(ent->name);
 		if (SkipNameFS(name_fs.c_str()))
 			continue;
 
-		name_utf8 = name_fs.ToUTF8();
+		std::string name_utf8 = name_fs.ToUTF8();
 		if (name_utf8.empty())
 			/* ignore files whose name cannot be converted
 			   to UTF-8 */
 			continue;
 
-		return name_utf8.c_str();
+		entries.emplace_front(std::move(name_utf8));
+		Copy(entries.front().info, *ent);
 	}
 
-	return nullptr;
-}
+	nfs_closedir(ctx, dir);
 
-bool
-NfsDirectoryReader::GetInfo(gcc_unused bool follow, FileInfo &info,
-			    gcc_unused Error &error)
-{
-	assert(ent != nullptr);
-
-	switch (ent->type) {
-	case NF3REG:
-		info.type = FileInfo::Type::REGULAR;
-		break;
-
-	case NF3DIR:
-		info.type = FileInfo::Type::DIRECTORY;
-		break;
-
-	default:
-		info.type = FileInfo::Type::OTHER;
-		break;
-	}
-
-	info.size = ent->size;
-	info.mtime = ent->mtime.tv_sec;
-	info.device = 0;
-	info.inode = ent->inode;
-	return true;
+	/* don't reverse the list - order does not matter */
+	return new MemoryStorageDirectoryReader(std::move(entries));
 }
 
 static Storage *
-CreateNfsStorageURI(const char *base, Error &error)
+CreateNfsStorageURI(gcc_unused EventLoop &event_loop, const char *base,
+		    Error &error)
 {
 	if (memcmp(base, "nfs://", 6) != 0)
 		return nullptr;
@@ -255,6 +231,8 @@ CreateNfsStorageURI(const char *base, Error &error)
 		error.SetErrno(-result, "nfs_mount() failed");
 		return nullptr;
 	}
+
+	nfs_set_base(server.c_str(), mount);
 
 	return new NfsStorage(base, ctx);
 }

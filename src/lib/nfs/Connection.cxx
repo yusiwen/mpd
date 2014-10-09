@@ -35,6 +35,36 @@ extern "C" {
 #include <poll.h> /* for POLLIN, POLLOUT */
 
 inline bool
+NfsConnection::CancellableCallback::Stat(nfs_context *ctx,
+					 const char *path,
+					 Error &error)
+{
+	int result = nfs_stat_async(ctx, path, Callback, this);
+	if (result < 0) {
+		error.Format(nfs_domain, "nfs_stat_async() failed: %s",
+			     nfs_get_error(ctx));
+		return false;
+	}
+
+	return true;
+}
+
+inline bool
+NfsConnection::CancellableCallback::OpenDirectory(nfs_context *ctx,
+						  const char *path,
+						  Error &error)
+{
+	int result = nfs_opendir_async(ctx, path, Callback, this);
+	if (result < 0) {
+		error.Format(nfs_domain, "nfs_opendir_async() failed: %s",
+			     nfs_get_error(ctx));
+		return false;
+	}
+
+	return true;
+}
+
+inline bool
 NfsConnection::CancellableCallback::Open(nfs_context *ctx,
 					 const char *path, int flags,
 					 Error &error)
@@ -174,6 +204,49 @@ NfsConnection::RemoveLease(NfsLease &lease)
 
 	new_leases.remove(&lease);
 	active_leases.remove(&lease);
+}
+
+bool
+NfsConnection::Stat(const char *path, NfsCallback &callback, Error &error)
+{
+	assert(!callbacks.Contains(callback));
+
+	auto &c = callbacks.Add(callback, *this, false);
+	if (!c.Stat(context, path, error)) {
+		callbacks.Remove(c);
+		return false;
+	}
+
+	ScheduleSocket();
+	return true;
+}
+
+bool
+NfsConnection::OpenDirectory(const char *path, NfsCallback &callback,
+			     Error &error)
+{
+	assert(!callbacks.Contains(callback));
+
+	auto &c = callbacks.Add(callback, *this, true);
+	if (!c.OpenDirectory(context, path, error)) {
+		callbacks.Remove(c);
+		return false;
+	}
+
+	ScheduleSocket();
+	return true;
+}
+
+const struct nfsdirent *
+NfsConnection::ReadDirectory(struct nfsdir *dir)
+{
+	return nfs_readdir(context, dir);
+}
+
+void
+NfsConnection::CloseDirectory(struct nfsdir *dir)
+{
+	return nfs_closedir(context, dir);
 }
 
 bool
@@ -391,8 +464,7 @@ NfsConnection::MountCallback(int status, nfs_context *nfs, void *data,
 inline bool
 NfsConnection::MountInternal(Error &error)
 {
-	if (context != nullptr)
-		return true;
+	assert(context == nullptr);
 
 	context = nfs_init_context();
 	if (context == nullptr) {
@@ -462,7 +534,7 @@ NfsConnection::BroadcastError(Error &&error)
 void
 NfsConnection::RunDeferred()
 {
-	{
+	if (context == nullptr) {
 		Error error;
 		if (!MountInternal(error)) {
 			BroadcastMountError(std::move(error));

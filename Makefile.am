@@ -559,6 +559,7 @@ NFS_SOURCES = \
 	src/lib/nfs/Connection.cxx src/lib/nfs/Connection.hxx \
 	src/lib/nfs/Manager.cxx src/lib/nfs/Manager.hxx \
 	src/lib/nfs/Glue.cxx src/lib/nfs/Glue.hxx \
+	src/lib/nfs/Base.cxx src/lib/nfs/Base.hxx \
 	src/lib/nfs/FileReader.cxx src/lib/nfs/FileReader.hxx \
 	src/lib/nfs/Domain.cxx src/lib/nfs/Domain.hxx
 
@@ -571,6 +572,7 @@ libstorage_a_SOURCES = \
 	src/storage/Registry.cxx src/storage/Registry.hxx \
 	src/storage/StorageInterface.cxx src/storage/StorageInterface.hxx \
 	src/storage/CompositeStorage.cxx src/storage/CompositeStorage.hxx \
+	src/storage/MemoryDirectoryReader.cxx src/storage/MemoryDirectoryReader.hxx \
 	src/storage/Configured.cxx src/storage/Configured.hxx \
 	src/storage/plugins/LocalStorage.cxx src/storage/plugins/LocalStorage.hxx \
 	src/storage/FileInfo.hxx
@@ -579,7 +581,10 @@ libstorage_a_CPPFLAGS = $(AM_CPPFLAGS) \
 	$(NFS_CFLAGS) \
 	$(SMBCLIENT_CFLAGS)
 
-STORAGE_LIBS = libstorage.a
+STORAGE_LIBS = \
+	libstorage.a \
+	$(NFS_LIBS) \
+	$(SMBCLIENT_LIBS)
 
 if ENABLE_SMBCLIENT
 libstorage_a_SOURCES += \
@@ -795,6 +800,8 @@ noinst_LIBRARIES += libffmpeg.a
 libffmpeg_a_SOURCES = \
 	src/lib/ffmpeg/Error.cxx src/lib/ffmpeg/Error.hxx \
 	src/lib/ffmpeg/Domain.cxx src/lib/ffmpeg/Domain.hxx
+libffmpeg_a_CPPFLAGS = $(AM_CPPFLAGS) \
+	$(FFMPEG_CFLAGS)
 FFMPEG_LIBS2 = libffmpeg.a $(FFMPEG_LIBS)
 endif
 
@@ -1508,6 +1515,7 @@ noinst_PROGRAMS = \
 
 if ENABLE_DATABASE
 noinst_PROGRAMS += test/DumpDatabase
+noinst_PROGRAMS += test/run_storage
 endif
 
 if ENABLE_NEIGHBOR_PLUGINS
@@ -1578,6 +1586,20 @@ if HAVE_LIBUPNP
 test_DumpDatabase_SOURCES += src/lib/expat/ExpatParser.cxx
 endif
 
+test_run_storage_LDADD = \
+	$(STORAGE_LIBS) \
+	$(FS_LIBS) \
+	libevent.a \
+	libthread.a \
+	libsystem.a \
+	libutil.a \
+	$(GLIB_LIBS)
+test_run_storage_SOURCES = \
+	src/Log.cxx src/LogBackend.cxx \
+	src/IOThread.cxx \
+	test/ScopeIOThread.hxx \
+	test/run_storage.cxx
+
 endif
 
 test_run_input_LDADD = \
@@ -1592,6 +1614,7 @@ test_run_input_LDADD = \
 	libsystem.a \
 	$(GLIB_LIBS)
 test_run_input_SOURCES = test/run_input.cxx \
+	test/ScopeIOThread.hxx \
 	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx \
@@ -1642,6 +1665,7 @@ test_visit_archive_LDADD = \
 	libsystem.a \
 	$(GLIB_LIBS)
 test_visit_archive_SOURCES = test/visit_archive.cxx \
+	test/ScopeIOThread.hxx \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx \
 	src/input/Open.cxx
@@ -1679,6 +1703,7 @@ test_dump_text_file_LDADD = \
 	libutil.a \
 	$(GLIB_LIBS)
 test_dump_text_file_SOURCES = test/dump_text_file.cxx \
+	test/ScopeIOThread.hxx \
 	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx
@@ -1700,6 +1725,7 @@ test_dump_playlist_LDADD = \
 	$(GLIB_LIBS)
 test_dump_playlist_SOURCES = test/dump_playlist.cxx \
 	test/FakeDecoderAPI.cxx test/FakeDecoderAPI.hxx \
+	test/ScopeIOThread.hxx \
 	$(DECODER_SRC) \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx \
@@ -1729,6 +1755,7 @@ test_run_decoder_LDADD = \
 	$(GLIB_LIBS)
 test_run_decoder_SOURCES = test/run_decoder.cxx \
 	test/FakeDecoderAPI.cxx test/FakeDecoderAPI.hxx \
+	test/ScopeIOThread.hxx \
 	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx \
@@ -1754,6 +1781,7 @@ test_read_tags_LDADD = \
 	$(GLIB_LIBS)
 test_read_tags_SOURCES = test/read_tags.cxx \
 	test/FakeDecoderAPI.cxx test/FakeDecoderAPI.hxx \
+	test/ScopeIOThread.hxx \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx \
 	src/ReplayGainInfo.cxx \
@@ -1888,6 +1916,7 @@ test_run_output_LDADD = $(MPD_LIBS) \
 	$(GLIB_LIBS)
 test_run_output_SOURCES = test/run_output.cxx \
 	test/FakeReplayGainConfig.cxx \
+	test/ScopeIOThread.hxx \
 	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx \

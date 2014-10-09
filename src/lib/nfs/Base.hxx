@@ -17,20 +17,30 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_STORAGE_PLUGIN_HXX
-#define MPD_STORAGE_PLUGIN_HXX
+#ifndef MPD_NFS_BASE_HXX
+#define MPD_NFS_BASE_HXX
 
 #include "check.h"
+#include "Compiler.h"
 
-class Error;
-class Storage;
-class EventLoop;
+/**
+ * Set the "base" NFS server and export name.  This will be the
+ * default export that will be mounted if a file within this export is
+ * being opened, instead of guessing the mount point.
+ *
+ * This is a kludge that is not truly thread-safe.
+ */
+void
+nfs_set_base(const char *server, const char *export_name);
 
-struct StoragePlugin {
-	const char *name;
-
-	Storage *(*create_uri)(EventLoop &event_loop, const char *uri,
-			       Error &error);
-};
+/**
+ * Check if the given server and path are inside the "base"
+ * server/export_name.  If yes, then a pointer to the portion of
+ * "path" after the export_name is returned; otherwise, nullptr is
+ * returned.
+ */
+gcc_pure
+const char *
+nfs_check_base(const char *server, const char *path);
 
 #endif
