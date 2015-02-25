@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -56,21 +56,21 @@ struct flac_encoder {
 static constexpr Domain flac_encoder_domain("vorbis_encoder");
 
 static bool
-flac_encoder_configure(struct flac_encoder *encoder, const config_param &param,
+flac_encoder_configure(struct flac_encoder *encoder, const ConfigBlock &block,
 		       gcc_unused Error &error)
 {
-	encoder->compression = param.GetBlockValue("compression", 5u);
+	encoder->compression = block.GetBlockValue("compression", 5u);
 
 	return true;
 }
 
 static Encoder *
-flac_encoder_init(const config_param &param, Error &error)
+flac_encoder_init(const ConfigBlock &block, Error &error)
 {
 	flac_encoder *encoder = new flac_encoder();
 
-	/* load configuration from "param" */
-	if (!flac_encoder_configure(encoder, param, error)) {
+	/* load configuration from "block" */
+	if (!flac_encoder_configure(encoder, block, error)) {
 		/* configuration has failed, roll back and return error */
 		delete encoder;
 		return nullptr;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,12 +25,15 @@
 #include "protocol/ArgParser.hxx"
 #include "client/Client.hxx"
 #include "Partition.hxx"
+#include "util/ConstBuffer.hxx"
 
 CommandResult
-handle_enableoutput(Client &client, gcc_unused unsigned argc, char *argv[])
+handle_enableoutput(Client &client, ConstBuffer<const char *> args)
 {
+	assert(args.size == 1);
+
 	unsigned device;
-	if (!check_unsigned(client, &device, argv[1]))
+	if (!check_unsigned(client, &device, args.front()))
 		return CommandResult::ERROR;
 
 	if (!audio_output_enable_index(client.partition.outputs, device)) {
@@ -43,10 +46,12 @@ handle_enableoutput(Client &client, gcc_unused unsigned argc, char *argv[])
 }
 
 CommandResult
-handle_disableoutput(Client &client, gcc_unused unsigned argc, char *argv[])
+handle_disableoutput(Client &client, ConstBuffer<const char *> args)
 {
+	assert(args.size == 1);
+
 	unsigned device;
-	if (!check_unsigned(client, &device, argv[1]))
+	if (!check_unsigned(client, &device, args.front()))
 		return CommandResult::ERROR;
 
 	if (!audio_output_disable_index(client.partition.outputs, device)) {
@@ -59,10 +64,12 @@ handle_disableoutput(Client &client, gcc_unused unsigned argc, char *argv[])
 }
 
 CommandResult
-handle_toggleoutput(Client &client, gcc_unused unsigned argc, char *argv[])
+handle_toggleoutput(Client &client, ConstBuffer<const char *> args)
 {
+	assert(args.size == 1);
+
 	unsigned device;
-	if (!check_unsigned(client, &device, argv[1]))
+	if (!check_unsigned(client, &device, args.front()))
 		return CommandResult::ERROR;
 
 	if (!audio_output_toggle_index(client.partition.outputs, device)) {
@@ -75,9 +82,10 @@ handle_toggleoutput(Client &client, gcc_unused unsigned argc, char *argv[])
 }
 
 CommandResult
-handle_devices(Client &client,
-	       gcc_unused unsigned argc, gcc_unused char *argv[])
+handle_devices(Client &client, gcc_unused ConstBuffer<const char *> args)
 {
+	assert(args.IsEmpty());
+
 	printAudioDevices(client, client.partition.outputs);
 
 	return CommandResult::OK;

@@ -22,15 +22,26 @@ if not os.path.isdir(ndk_path):
     print("NDK not found in", ndk_path, file=sys.stderr)
     sys.exit(1)
 
+# select the NDK target
+ndk_arch = 'arm'
+host_arch = 'arm-linux-androideabi'
+android_abi = 'armeabi-v7a'
+ndk_platform = 'android-14'
+
+# select the NDK compiler
+gcc_version = '4.9'
+llvm_version = '3.5'
+
 # the path to the MPD sources
-mpd_path = os.path.dirname(os.path.dirname(sys.argv[0]))
+mpd_path = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]) or '.', '..'))
 
 # output directories
 lib_path = os.path.abspath('lib')
 tarball_path = lib_path
 src_path = os.path.join(lib_path, 'src')
-build_path = os.path.join(lib_path, 'build')
-root_path = os.path.join(lib_path, 'root')
+arch_path = os.path.join(lib_path, host_arch)
+build_path = os.path.join(arch_path, 'build')
+root_path = os.path.join(arch_path, 'root')
 
 # build host configuration
 build_arch = 'linux-x86_64'
@@ -38,16 +49,6 @@ build_arch = 'linux-x86_64'
 # redirect pkg-config to use our root directory instead of the default
 # one on the build host
 os.environ['PKG_CONFIG_LIBDIR'] = os.path.join(root_path, 'lib/pkgconfig')
-
-# select the NDK compiler
-gcc_version = '4.8'
-llvm_version = '3.3'
-
-# select the NDK target
-ndk_arch = 'arm'
-host_arch = 'arm-linux-androideabi'
-android_abi = 'armeabi-v7a'
-ndk_platform = 'android-14'
 
 # set up the NDK toolchain
 
@@ -314,8 +315,8 @@ thirdparty_libs = [
     ),
 
     AutotoolsProject(
-        'https://svn.xiph.org/releases/flac/flac-1.3.0.tar.xz',
-        '13b5c214cee8373464d3d65dee362cdd',
+        'http://downloads.xiph.org/releases/flac/flac-1.3.1.tar.xz',
+        'b9922c9a0378c88d3e901b234f852698',
         'lib/libFLAC.a',
         [
             '--disable-shared', '--enable-static',
@@ -341,15 +342,14 @@ thirdparty_libs = [
     ),
 
     FfmpegProject(
-        'http://www.ffmpeg.org/releases/ffmpeg-2.2.3.tar.bz2',
-        'dbb5b6b69bd010916f17df0ae596e0b1',
+        'http://ffmpeg.org/releases/ffmpeg-2.5.tar.bz2',
+        '4346fe710cc6bdd981f6534d2420d1ab',
         'lib/libavcodec.a',
         [
             '--disable-shared', '--enable-static',
             '--enable-gpl',
             '--enable-small',
             '--disable-pthreads',
-            '--disable-runtime-cpudetect',
             '--disable-programs',
             '--disable-doc',
             '--disable-avdevice',
@@ -366,8 +366,8 @@ thirdparty_libs = [
     ),
 
     AutotoolsProject(
-        'http://curl.haxx.se/download/curl-7.37.0.tar.lzma',
-        '54bfd1eb5214f604186d6f5ac61c7781',
+        'http://curl.haxx.se/download/curl-7.39.0.tar.lzma',
+        'e9aa6dec29920eba8ef706ea5823bad7',
         'lib/libcurl.a',
         [
             '--disable-shared', '--enable-static',
@@ -422,10 +422,6 @@ configure = [
 
     '--disable-glib',
     '--disable-icu',
-
-    # disabled for now because these features require GLib:
-    '--disable-httpd-output',
-    '--disable-vorbis-encoder',
 
 ] + configure_args
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,6 +21,7 @@
 #include "Collate.hxx"
 
 #ifdef HAVE_ICU
+#include "Util.hxx"
 #include "Error.hxx"
 #include "util/WritableBuffer.hxx"
 #include "util/ConstBuffer.hxx"
@@ -71,58 +72,17 @@ IcuCollateFinish()
 	ucol_close(collator);
 }
 
-static WritableBuffer<UChar>
-UCharFromUTF8(const char *src)
-{
-	assert(src != nullptr);
-
-	const size_t src_length = strlen(src);
-	const size_t dest_capacity = src_length;
-	UChar *dest = new UChar[dest_capacity];
-
-	UErrorCode error_code = U_ZERO_ERROR;
-	int32_t dest_length;
-	u_strFromUTF8(dest, dest_capacity, &dest_length,
-		      src, src_length,
-		      &error_code);
-	if (U_FAILURE(error_code)) {
-		delete[] dest;
-		return nullptr;
-	}
-
-	return { dest, size_t(dest_length) };
-}
-
-static WritableBuffer<char>
-UCharToUTF8(ConstBuffer<UChar> src)
-{
-	assert(!src.IsNull());
-
-	/* worst-case estimate */
-	size_t dest_capacity = 4 * src.size;
-
-	char *dest = new char[dest_capacity];
-
-	UErrorCode error_code = U_ZERO_ERROR;
-	int32_t dest_length;
-	u_strToUTF8(dest, dest_capacity, &dest_length, src.data, src.size,
-		    &error_code);
-	if (U_FAILURE(error_code)) {
-		delete[] dest;
-		return nullptr;
-	}
-
-	return { dest, size_t(dest_length) };
-}
-
 #endif
 
 gcc_pure
 int
 IcuCollate(const char *a, const char *b)
 {
+#if !CLANG_CHECK_VERSION(3,6)
+	/* disabled on clang due to -Wtautological-pointer-compare */
 	assert(a != nullptr);
 	assert(b != nullptr);
+#endif
 
 #ifdef HAVE_ICU
 	assert(collator != nullptr);
@@ -159,7 +119,10 @@ IcuCaseFold(const char *src)
 {
 #ifdef HAVE_ICU
 	assert(collator != nullptr);
+#if !CLANG_CHECK_VERSION(3,6)
+	/* disabled on clang due to -Wtautological-pointer-compare */
 	assert(src != nullptr);
+#endif
 
 	const auto u = UCharFromUTF8(src);
 	if (u.IsNull())

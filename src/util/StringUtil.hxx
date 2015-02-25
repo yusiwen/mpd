@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -113,5 +113,13 @@ CopyString(char *dest, const char *src, size_t size);
 gcc_pure
 bool
 string_array_contains(const char *const* haystack, const char *needle);
+
+/**
+ * Convert the specified ASCII string (0x00..0x7f) to upper case.
+ *
+ * @param size the destination buffer size
+ */
+void
+ToUpperASCII(char *dest, const char *src, size_t size);
 
 #endif

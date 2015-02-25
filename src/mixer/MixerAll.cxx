@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -149,7 +149,8 @@ MultipleOutputs::SetSoftwareVolume(unsigned volume)
 		const auto mixer = ao->mixer;
 
 		if (mixer != nullptr &&
-		    &mixer->plugin == &software_mixer_plugin)
+		    (&mixer->plugin == &software_mixer_plugin ||
+		     &mixer->plugin == &null_mixer_plugin))
 			mixer_set_volume(mixer, volume, IgnoreError());
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,12 +20,13 @@
 #include "config.h"
 #include "AoOutputPlugin.hxx"
 #include "../OutputAPI.hxx"
+#include "util/DivideString.hxx"
+#include "util/SplitString.hxx"
 #include "util/Error.hxx"
 #include "util/Domain.hxx"
 #include "Log.hxx"
 
 #include <ao/ao.h>
-#include <glib.h>
 
 #include <string.h>
 
@@ -45,11 +46,11 @@ struct AoOutput {
 	AoOutput()
 		:base(ao_output_plugin) {}
 
-	bool Initialize(const config_param &param, Error &error) {
-		return base.Configure(param, error);
+	bool Initialize(const ConfigBlock &block, Error &error) {
+		return base.Configure(block, error);
 	}
 
-	bool Configure(const config_param &param, Error &error);
+	bool Configure(const ConfigBlock &block, Error &error);
 };
 
 static constexpr Domain ao_output_domain("ao_output");
@@ -89,20 +90,20 @@ ao_output_error(Error &error_r)
 }
 
 inline bool
-AoOutput::Configure(const config_param &param, Error &error)
+AoOutput::Configure(const ConfigBlock &block, Error &error)
 {
 	const char *value;
 
 	options = nullptr;
 
-	write_size = param.GetBlockValue("write_size", 1024u);
+	write_size = block.GetBlockValue("write_size", 1024u);
 
 	if (ao_output_ref == 0) {
 		ao_initialize();
 	}
 	ao_output_ref++;
 
-	value = param.GetBlockValue("driver", "default");
+	value = block.GetBlockValue("driver", "default");
 	if (0 == strcmp(value, "default"))
 		driver = ao_default_driver_id();
 	else
@@ -122,45 +123,38 @@ AoOutput::Configure(const config_param &param, Error &error)
 	}
 
 	FormatDebug(ao_output_domain, "using ao driver \"%s\" for \"%s\"\n",
-		    ai->short_name, param.GetBlockValue("name", nullptr));
+		    ai->short_name, block.GetBlockValue("name", nullptr));
 
-	value = param.GetBlockValue("options", nullptr);
+	value = block.GetBlockValue("options", nullptr);
 	if (value != nullptr) {
-		gchar **_options = g_strsplit(value, ";", 0);
+		for (const auto &i : SplitString(value, ';')) {
+			const DivideString ss(i.c_str(), '=', true);
 
-		for (unsigned i = 0; _options[i] != nullptr; ++i) {
-			gchar **key_value = g_strsplit(_options[i], "=", 2);
-
-			if (key_value[0] == nullptr || key_value[1] == nullptr) {
+			if (!ss.IsDefined()) {
 				error.Format(ao_output_domain,
 					     "problems parsing options \"%s\"",
-					     _options[i]);
+					     i.c_str());
 				return false;
 			}
 
-			ao_append_option(&options, key_value[0],
-					 key_value[1]);
-
-			g_strfreev(key_value);
+			ao_append_option(&options, ss.GetFirst(), ss.GetSecond());
 		}
-
-		g_strfreev(_options);
 	}
 
 	return true;
 }
 
 static AudioOutput *
-ao_output_init(const config_param &param, Error &error)
+ao_output_init(const ConfigBlock &block, Error &error)
 {
 	AoOutput *ad = new AoOutput();
 
-	if (!ad->Initialize(param, error)) {
+	if (!ad->Initialize(block, error)) {
 		delete ad;
 		return nullptr;
 	}
 
-	if (!ad->Configure(param, error)) {
+	if (!ad->Configure(block, error)) {
 		delete ad;
 		return nullptr;
 	}

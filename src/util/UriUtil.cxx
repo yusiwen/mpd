@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -50,6 +50,23 @@ uri_get_suffix(const char *uri)
 
 	if (strpbrk(suffix, "/\\") != nullptr)
 		return nullptr;
+
+	return suffix;
+}
+
+const char *
+uri_get_suffix(const char *uri, UriSuffixBuffer &buffer)
+{
+	const char *suffix = uri_get_suffix(uri);
+	if (suffix == nullptr)
+		return nullptr;
+
+	const char *q = strchr(suffix, '?');
+	if (q != nullptr && size_t(q - suffix) < sizeof(buffer.data)) {
+		memcpy(buffer.data, suffix, q - suffix);
+		buffer.data[q - suffix] = 0;
+		suffix = buffer.data;
+	}
 
 	return suffix;
 }
@@ -123,8 +140,11 @@ uri_remove_auth(const char *uri)
 bool
 uri_is_child(const char *parent, const char *child)
 {
+#if !CLANG_CHECK_VERSION(3,6)
+	/* disabled on clang due to -Wtautological-pointer-compare */
 	assert(parent != nullptr);
 	assert(child != nullptr);
+#endif
 
 	const size_t parent_length = strlen(parent);
 	return memcmp(parent, child, parent_length) == 0 &&
@@ -136,4 +156,32 @@ bool
 uri_is_child_or_same(const char *parent, const char *child)
 {
 	return strcmp(parent, child) == 0 || uri_is_child(parent, child);
+}
+
+std::string
+uri_apply_base(const std::string &uri, const std::string &base)
+{
+	if (uri.front() == '/') {
+		/* absolute path: replace the whole URI path in base */
+
+		auto i = base.find("://");
+		if (i == base.npos)
+			/* no scheme: override base completely */
+			return uri;
+
+		/* find the first slash after the host part */
+		i = base.find('/', i + 3);
+		if (i == base.npos)
+			/* there's no URI path - simply append uri */
+			i = base.length();
+
+		return base.substr(0, i) + uri;
+	}
+
+	std::string out(base);
+	if (out.back() != '/')
+		out.push_back('/');
+
+	out += uri;
+	return out;
 }

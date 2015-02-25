@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -53,17 +53,22 @@ bool playlist_saveAbsolutePaths = DEFAULT_PLAYLIST_SAVE_ABSOLUTE_PATHS;
 void
 spl_global_init(void)
 {
-	playlist_max_length = config_get_positive(CONF_MAX_PLAYLIST_LENGTH,
-						  DEFAULT_PLAYLIST_MAX_LENGTH);
+	playlist_max_length =
+		config_get_positive(ConfigOption::MAX_PLAYLIST_LENGTH,
+				    DEFAULT_PLAYLIST_MAX_LENGTH);
 
 	playlist_saveAbsolutePaths =
-		config_get_bool(CONF_SAVE_ABSOLUTE_PATHS,
+		config_get_bool(ConfigOption::SAVE_ABSOLUTE_PATHS,
 				DEFAULT_PLAYLIST_SAVE_ABSOLUTE_PATHS);
 }
 
 bool
 spl_valid_name(const char *name_utf8)
 {
+	if (*name_utf8 == 0)
+		/* empty name not allowed */
+		return false;
+
 	/*
 	 * Not supporting '/' was done out of laziness, and we should
 	 * really strive to support it in the future.

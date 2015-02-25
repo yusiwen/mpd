@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -44,7 +44,7 @@ ZeroconfInit(gcc_unused EventLoop &loop)
 {
 	const char *serviceName;
 
-	zeroconfEnabled = config_get_bool(CONF_ZEROCONF_ENABLED,
+	zeroconfEnabled = config_get_bool(ConfigOption::ZEROCONF_ENABLED,
 					  DEFAULT_ZEROCONF_ENABLED);
 	if (!zeroconfEnabled)
 		return;
@@ -56,7 +56,8 @@ ZeroconfInit(gcc_unused EventLoop &loop)
 		return;
 	}
 
-	serviceName = config_get_string(CONF_ZEROCONF_NAME, SERVICE_NAME);
+	serviceName = config_get_string(ConfigOption::ZEROCONF_NAME,
+					SERVICE_NAME);
 
 #ifdef HAVE_AVAHI
 	AvahiInit(loop, serviceName);

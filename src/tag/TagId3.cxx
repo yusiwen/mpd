@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -66,12 +66,14 @@
 
 static constexpr Domain id3_domain("id3");
 
+gcc_pure
 static inline bool
 tag_is_id3v1(struct id3_tag *tag)
 {
 	return (id3_tag_options(tag, 0, 0) & ID3_TAG_OPTION_ID3V1) != 0;
 }
 
+gcc_pure
 static id3_utf8_t *
 tag_id3_getstring(const struct id3_frame *frame, unsigned i)
 {
@@ -97,7 +99,8 @@ import_id3_string(bool is_id3v1, const id3_ucs4_t *ucs4)
 	/* use encoding field here? */
 	const char *encoding;
 	if (is_id3v1 &&
-	    (encoding = config_get_string(CONF_ID3V1_ENCODING, nullptr)) != nullptr) {
+	    (encoding = config_get_string(ConfigOption::ID3V1_ENCODING,
+					  nullptr)) != nullptr) {
 		id3_latin1_t *isostr = id3_ucs4_latin1duplicate(ucs4);
 		if (gcc_unlikely(isostr == nullptr))
 			return nullptr;
@@ -249,10 +252,11 @@ tag_id3_import_comment(struct id3_tag *tag, const char *id, TagType type,
  * Parse a TXXX name, and convert it to a TagType enum value.
  * Returns TAG_NUM_OF_ITEM_TYPES if the TXXX name is not understood.
  */
+gcc_pure
 static TagType
 tag_id3_parse_txxx_name(const char *name)
 {
-	static const struct tag_table txxx_tags[] = {
+	static constexpr struct tag_table txxx_tags[] = {
 		{ "ALBUMARTISTSORT", TAG_ALBUM_ARTIST_SORT },
 		{ "MusicBrainz Artist Id", TAG_MUSICBRAINZ_ARTISTID },
 		{ "MusicBrainz Album Id", TAG_MUSICBRAINZ_ALBUMID },

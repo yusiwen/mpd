@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,13 +27,12 @@
 #include "db/LightSong.hxx"
 #include "db/PlaylistVector.hxx"
 #include "config/ConfigGlobal.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Param.hxx"
+#include "config/Block.hxx"
 #include "tag/TagConfig.hxx"
 #include "fs/Path.hxx"
 #include "event/Loop.hxx"
 #include "util/Error.hxx"
-
-#include <glib.h>
 
 #include <iostream>
 using std::cout;
@@ -42,7 +41,7 @@ using std::endl;
 
 #include <stdlib.h>
 
-#ifdef HAVE_LIBUPNP
+#ifdef ENABLE_UPNP
 #include "input/InputStream.hxx"
 size_t
 InputStream::LockRead(void *, size_t, Error &)
@@ -105,12 +104,6 @@ main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	/* initialize GLib */
-
-#if !GLIB_CHECK_VERSION(2,32,0)
-	g_thread_init(nullptr);
-#endif
-
 	/* initialize MPD */
 
 	config_global_init();
@@ -128,13 +121,13 @@ main(int argc, char **argv)
 
 	/* do it */
 
-	const struct config_param *path = config_get_param(CONF_DB_FILE);
-	config_param param("database", path != nullptr ? path->line : -1);
+	const auto *path = config_get_param(ConfigOption::DB_FILE);
+	ConfigBlock block(path != nullptr ? path->line : -1);
 	if (path != nullptr)
-		param.AddBlockParam("path", path->value.c_str(), path->line);
+		block.AddBlockParam("path", path->value.c_str(), path->line);
 
 	Database *db = plugin->create(event_loop, database_listener,
-				      param, error);
+				      block, error);
 
 	if (db == nullptr) {
 		cerr << error.GetMessage() << endl;

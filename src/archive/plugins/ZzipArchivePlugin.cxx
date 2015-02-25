@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -168,12 +168,13 @@ bool
 ZzipInputStream::Seek(offset_type new_offset, Error &error)
 {
 	zzip_off_t ofs = zzip_seek(file, new_offset, SEEK_SET);
-	if (ofs != -1) {
+	if (ofs < 0) {
 		error.Set(zzip_domain, "zzip_seek() has failed");
-		offset = ofs;
-		return true;
+		return false;
 	}
-	return false;
+
+	offset = ofs;
+	return true;
 }
 
 /* exported structures */

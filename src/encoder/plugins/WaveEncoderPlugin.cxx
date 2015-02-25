@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -79,7 +79,7 @@ fill_wave_header(struct wave_header *header, int channels, int bits,
 }
 
 static Encoder *
-wave_encoder_init(gcc_unused const config_param &param,
+wave_encoder_init(gcc_unused const ConfigBlock &block,
 		  gcc_unused Error &error)
 {
 	WaveEncoder *encoder = new WaveEncoder();

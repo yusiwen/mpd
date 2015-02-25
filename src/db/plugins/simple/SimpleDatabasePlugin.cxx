@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -34,14 +34,14 @@
 #include "fs/io/TextFile.hxx"
 #include "fs/io/BufferedOutputStream.hxx"
 #include "fs/io/FileOutputStream.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Block.hxx"
 #include "fs/FileSystem.hxx"
 #include "util/CharUtil.hxx"
 #include "util/Error.hxx"
 #include "util/Domain.hxx"
 #include "Log.hxx"
 
-#ifdef HAVE_ZLIB
+#ifdef ENABLE_ZLIB
 #include "fs/io/GzipOutputStream.hxx"
 #endif
 
@@ -52,21 +52,21 @@ static constexpr Domain simple_db_domain("simple_db");
 inline SimpleDatabase::SimpleDatabase()
 	:Database(simple_db_plugin),
 	 path(AllocatedPath::Null()),
-#ifdef HAVE_ZLIB
+#ifdef ENABLE_ZLIB
 	 compress(true),
 #endif
 	 cache_path(AllocatedPath::Null()),
 	 prefixed_light_song(nullptr) {}
 
 inline SimpleDatabase::SimpleDatabase(AllocatedPath &&_path,
-#ifndef HAVE_ZLIB
+#ifndef ENABLE_ZLIB
 				      gcc_unused
 #endif
 				      bool _compress)
 	:Database(simple_db_plugin),
 	 path(std::move(_path)),
 	 path_utf8(path.ToUTF8()),
-#ifdef HAVE_ZLIB
+#ifdef ENABLE_ZLIB
 	 compress(_compress),
 #endif
 	 cache_path(AllocatedPath::Null()),
@@ -76,10 +76,10 @@ inline SimpleDatabase::SimpleDatabase(AllocatedPath &&_path,
 Database *
 SimpleDatabase::Create(gcc_unused EventLoop &loop,
 		       gcc_unused DatabaseListener &listener,
-		       const config_param &param, Error &error)
+		       const ConfigBlock &block, Error &error)
 {
 	SimpleDatabase *db = new SimpleDatabase();
-	if (!db->Configure(param, error)) {
+	if (!db->Configure(block, error)) {
 		delete db;
 		db = nullptr;
 	}
@@ -88,9 +88,9 @@ SimpleDatabase::Create(gcc_unused EventLoop &loop,
 }
 
 bool
-SimpleDatabase::Configure(const config_param &param, Error &error)
+SimpleDatabase::Configure(const ConfigBlock &block, Error &error)
 {
-	path = param.GetBlockPath("path", error);
+	path = block.GetBlockPath("path", error);
 	if (path.IsNull()) {
 		if (!error.IsDefined())
 			error.Set(simple_db_domain,
@@ -100,12 +100,12 @@ SimpleDatabase::Configure(const config_param &param, Error &error)
 
 	path_utf8 = path.ToUTF8();
 
-	cache_path = param.GetBlockPath("cache_directory", error);
+	cache_path = block.GetBlockPath("cache_directory", error);
 	if (path.IsNull() && error.IsDefined())
 		return false;
 
-#ifdef HAVE_ZLIB
-	compress = param.GetBlockValue("compress", compress);
+#ifdef ENABLE_ZLIB
+	compress = block.GetBlockValue("compress", compress);
 #endif
 
 	return true;
@@ -389,7 +389,7 @@ SimpleDatabase::Save(Error &error)
 
 	OutputStream *os = &fos;
 
-#ifdef HAVE_ZLIB
+#ifdef ENABLE_ZLIB
 	GzipOutputStream *gzip = nullptr;
 	if (compress) {
 		gzip = new GzipOutputStream(*os, error);
@@ -407,13 +407,13 @@ SimpleDatabase::Save(Error &error)
 	db_save_internal(bos, *root);
 
 	if (!bos.Flush(error)) {
-#ifdef HAVE_ZLIB
+#ifdef ENABLE_ZLIB
 		delete gzip;
 #endif
 		return false;
 	}
 
-#ifdef HAVE_ZLIB
+#ifdef ENABLE_ZLIB
 	if (gzip != nullptr) {
 		bool success = gzip->Flush(error);
 		delete gzip;
@@ -435,9 +435,12 @@ SimpleDatabase::Save(Error &error)
 bool
 SimpleDatabase::Mount(const char *uri, Database *db, Error &error)
 {
+#if !CLANG_CHECK_VERSION(3,6)
+	/* disabled on clang due to -Wtautological-pointer-compare */
 	assert(uri != nullptr);
-	assert(*uri != 0);
 	assert(db != nullptr);
+#endif
+	assert(*uri != 0);
 
 	ScopeDatabaseLock protect;
 
@@ -445,13 +448,13 @@ SimpleDatabase::Mount(const char *uri, Database *db, Error &error)
 	if (r.uri == nullptr) {
 		error.Format(db_domain, DB_CONFLICT,
 			     "Already exists: %s", uri);
-		return nullptr;
+		return false;
 	}
 
 	if (strchr(r.uri, '/') != nullptr) {
 		error.Format(db_domain, DB_NOT_FOUND,
 			     "Parent not found: %s", uri);
-		return nullptr;
+		return false;
 	}
 
 	Directory *mnt = r.directory->CreateChild(r.uri);
@@ -478,13 +481,13 @@ SimpleDatabase::Mount(const char *local_uri, const char *storage_uri,
 	if (cache_path.IsNull()) {
 		error.Format(db_domain, DB_NOT_FOUND,
 			     "No 'cache_directory' configured");
-		return nullptr;
+		return false;
 	}
 
 	std::string name(storage_uri);
 	std::replace_if(name.begin(), name.end(), IsUnsafeChar, '_');
 
-#ifndef HAVE_ZLIB
+#ifndef ENABLE_ZLIB
 	constexpr bool compress = false;
 #endif
 	auto db = new SimpleDatabase(AllocatedPath::Build(cache_path,

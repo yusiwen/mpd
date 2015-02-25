@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,10 +30,6 @@
 #include "Log.hxx"
 #include "stdbin.h"
 
-#ifdef HAVE_GLIB
-#include <glib.h>
-#endif
-
 #include <assert.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -49,12 +45,6 @@ int main(int argc, char **argv)
 	Decoder decoder;
 	const char *const decoder_name = argv[1];
 	const char *const uri = argv[2];
-
-#ifdef HAVE_GLIB
-#if !GLIB_CHECK_VERSION(2,32,0)
-	g_thread_init(NULL);
-#endif
-#endif
 
 	const ScopeIOThread io_thread;
 

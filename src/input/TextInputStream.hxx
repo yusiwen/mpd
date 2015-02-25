@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,10 +30,10 @@ class TextInputStream {
 
 public:
 	/**
-	 * Wraps an existing #input_stream object into a #TextInputStream,
+	 * Wraps an existing #InputStream object into a #TextInputStream,
 	 * to read its contents as text lines.
 	 *
-	 * @param _is an open #input_stream object
+	 * @param _is an open #InputStream object
 	 */
 	explicit TextInputStream(InputStream &_is)
 		:is(_is) {}

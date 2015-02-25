@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -62,6 +62,10 @@ protected:
 	Error postponed_error;
 
 public:
+	/**
+	 * @param _buffer a buffer allocated with HugeAllocate(); the
+	 * destructor will free it using HugeFree()
+	 */
 	AsyncInputStream(const char *_url,
 			 Mutex &_mutex, Cond &_cond,
 			 void *_buffer, size_t _buffer_size,
@@ -82,6 +86,10 @@ protected:
 	 * Pass an tag from the I/O thread to the client thread.
 	 */
 	void SetTag(Tag *_tag);
+
+	void ClearTag() {
+		SetTag(nullptr);
+	}
 
 	void Pause();
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -61,17 +61,17 @@ osx_output_test_default_device(void)
 }
 
 static void
-osx_output_configure(OSXOutput *oo, const config_param &param)
+osx_output_configure(OSXOutput *oo, const ConfigBlock &block)
 {
-	const char *device = param.GetBlockValue("device");
+	const char *device = block.GetBlockValue("device");
 
-	if (device == NULL || 0 == strcmp(device, "default")) {
+	if (device == nullptr || 0 == strcmp(device, "default")) {
 		oo->component_subtype = kAudioUnitSubType_DefaultOutput;
-		oo->device_name = NULL;
+		oo->device_name = nullptr;
 	}
 	else if (0 == strcmp(device, "system")) {
 		oo->component_subtype = kAudioUnitSubType_SystemOutput;
-		oo->device_name = NULL;
+		oo->device_name = nullptr;
 	}
 	else {
 		oo->component_subtype = kAudioUnitSubType_HALOutput;
@@ -81,15 +81,15 @@ osx_output_configure(OSXOutput *oo, const config_param &param)
 }
 
 static AudioOutput *
-osx_output_init(const config_param &param, Error &error)
+osx_output_init(const ConfigBlock &block, Error &error)
 {
 	OSXOutput *oo = new OSXOutput();
-	if (!oo->base.Configure(param, error)) {
+	if (!oo->base.Configure(block, error)) {
 		delete oo;
-		return NULL;
+		return nullptr;
 	}
 
-	osx_output_configure(oo, param);
+	osx_output_configure(oo, block);
 
 	return &oo->base;
 }
@@ -108,7 +108,7 @@ osx_output_set_device(OSXOutput *oo, Error &error)
 	bool ret = true;
 	OSStatus status;
 	UInt32 size, numdevices;
-	AudioDeviceID *deviceids = NULL;
+	AudioDeviceID *deviceids = nullptr;
 	char name[256];
 	unsigned int i;
 
@@ -118,7 +118,7 @@ osx_output_set_device(OSXOutput *oo, Error &error)
 	/* how many audio devices are there? */
 	status = AudioHardwareGetPropertyInfo(kAudioHardwarePropertyDevices,
 					      &size,
-					      NULL);
+					      nullptr);
 	if (status != noErr) {
 		error.Format(osx_output_domain, status,
 			     "Unable to determine number of OS X audio devices: %s",
@@ -206,7 +206,7 @@ osx_render(void *vdata,
 	AudioBuffer *buffer = &buffer_list->mBuffers[0];
 	size_t buffer_size = buffer->mDataByteSize;
 
-	assert(od->buffer != NULL);
+	assert(od->buffer != nullptr);
 
 	od->mutex.lock();
 
@@ -245,7 +245,7 @@ osx_output_enable(AudioOutput *ao, Error &error)
 	desc.componentFlags = 0;
 	desc.componentFlagsMask = 0;
 
-	Component comp = FindNextComponent(NULL, &desc);
+	Component comp = FindNextComponent(nullptr, &desc);
 	if (comp == 0) {
 		error.Set(osx_output_domain,
 			  "Error finding OS X component");

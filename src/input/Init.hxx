@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,13 +23,13 @@
 class Error;
 
 /**
- * Initializes this library and all input_stream implementations.
+ * Initializes this library and all #InputStream implementations.
  */
 bool
 input_stream_global_init(Error &error);
 
 /**
- * Deinitializes this library and all input_stream implementations.
+ * Deinitializes this library and all #InputStream implementations.
  */
 void input_stream_global_finish(void);
 

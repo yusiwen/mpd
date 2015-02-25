@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -31,10 +31,6 @@
 #include "fs/Path.hxx"
 #include "thread/Cond.hxx"
 #include "Log.hxx"
-
-#ifdef HAVE_GLIB
-#include <glib.h>
-#endif
 
 #include <assert.h>
 #include <unistd.h>
@@ -89,12 +85,6 @@ int main(int argc, char **argv)
 
 	decoder_name = argv[1];
 	const Path path = Path::FromFS(argv[2]);
-
-#ifdef HAVE_GLIB
-#if !GLIB_CHECK_VERSION(2,32,0)
-	g_thread_init(NULL);
-#endif
-#endif
 
 	const ScopeIOThread io_thread;
 

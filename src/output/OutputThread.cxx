@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,6 +22,7 @@
 #include "OutputAPI.hxx"
 #include "Domain.hxx"
 #include "pcm/PcmMix.hxx"
+#include "pcm/Domain.hxx"
 #include "notify.hxx"
 #include "filter/FilterInternal.hxx"
 #include "filter/plugins/ConvertFilterPlugin.hxx"
@@ -44,8 +45,8 @@
 void
 AudioOutput::CommandFinished()
 {
-	assert(command != AO_COMMAND_NONE);
-	command = AO_COMMAND_NONE;
+	assert(command != Command::NONE);
+	command = Command::NONE;
 
 	mutex.unlock();
 	audio_output_client_notify.Signal();
@@ -165,6 +166,10 @@ AudioOutput::Open()
 	out_audio_format.ApplyMask(config_audio_format);
 
 	mutex.unlock();
+
+	const AudioFormat retry_audio_format = out_audio_format;
+
+ retry_without_dsd:
 	success = ao_plugin_open(this, out_audio_format, error);
 	mutex.lock();
 
@@ -174,7 +179,10 @@ AudioOutput::Open()
 		FormatError(error, "Failed to open \"%s\" [%s]",
 			    name, plugin.name);
 
+		mutex.unlock();
 		CloseFilter();
+		mutex.lock();
+
 		fail_timer.Update();
 		return;
 	}
@@ -184,7 +192,36 @@ AudioOutput::Open()
 		FormatError(error, "Failed to convert for \"%s\" [%s]",
 			    name, plugin.name);
 
+		mutex.unlock();
+		ao_plugin_close(this);
+
+		if (error.IsDomain(pcm_domain) &&
+		    out_audio_format.format == SampleFormat::DSD) {
+			/* if the audio output supports DSD, but not
+			   the given sample rate, it asks MPD to
+			   resample; resampling DSD however is not
+			   implemented; our last resort is to give up
+			   DSD and fall back to PCM */
+
+			// TODO: clean up this workaround
+
+			FormatError(output_domain, "Retrying without DSD");
+
+			out_audio_format = retry_audio_format;
+			out_audio_format.format = SampleFormat::FLOAT;
+
+			/* clear the Error to allow reusing it */
+			error.Clear();
+
+			/* sorry for the "goto" - this is a workaround
+			   for the stable branch that should be as
+			   unintrusive as possible */
+			goto retry_without_dsd;
+		}
+
 		CloseFilter();
+		mutex.lock();
+
 		fail_timer.Update();
 		return;
 	}
@@ -233,7 +270,10 @@ AudioOutput::ReopenFilter()
 {
 	Error error;
 
+	mutex.unlock();
 	CloseFilter();
+	mutex.lock();
+
 	const AudioFormat filter_audio_format =
 		OpenFilter(in_audio_format, error);
 	if (!filter_audio_format.IsDefined() ||
@@ -302,7 +342,7 @@ AudioOutput::WaitForDelay()
 
 		(void)cond.timed_wait(mutex, delay);
 
-		if (command != AO_COMMAND_NONE)
+		if (command != Command::NONE)
 			return false;
 	}
 }
@@ -415,7 +455,7 @@ AudioOutput::PlayChunk(const MusicChunk *chunk)
 
 	if (tags && gcc_unlikely(chunk->tag != nullptr)) {
 		mutex.unlock();
-		ao_plugin_send_tag(this, chunk->tag);
+		ao_plugin_send_tag(this, *chunk->tag);
 		mutex.lock();
 	}
 
@@ -431,7 +471,7 @@ AudioOutput::PlayChunk(const MusicChunk *chunk)
 
 	Error error;
 
-	while (!data.IsEmpty() && command == AO_COMMAND_NONE) {
+	while (!data.IsEmpty() && command == Command::NONE) {
 		if (!WaitForDelay())
 			break;
 
@@ -489,7 +529,7 @@ AudioOutput::Play()
 	assert(!in_playback_loop);
 	in_playback_loop = true;
 
-	while (chunk != nullptr && command == AO_COMMAND_NONE) {
+	while (chunk != nullptr && command == Command::NONE) {
 		assert(!current_chunk_finished);
 
 		current_chunk = chunk;
@@ -537,7 +577,7 @@ AudioOutput::Pause()
 			Close(false);
 			break;
 		}
-	} while (command == AO_COMMAND_NONE);
+	} while (command == Command::NONE);
 
 	pause = false;
 }
@@ -554,30 +594,30 @@ AudioOutput::Task()
 
 	while (1) {
 		switch (command) {
-		case AO_COMMAND_NONE:
+		case Command::NONE:
 			break;
 
-		case AO_COMMAND_ENABLE:
+		case Command::ENABLE:
 			Enable();
 			CommandFinished();
 			break;
 
-		case AO_COMMAND_DISABLE:
+		case Command::DISABLE:
 			Disable();
 			CommandFinished();
 			break;
 
-		case AO_COMMAND_OPEN:
+		case Command::OPEN:
 			Open();
 			CommandFinished();
 			break;
 
-		case AO_COMMAND_REOPEN:
+		case Command::REOPEN:
 			Reopen();
 			CommandFinished();
 			break;
 
-		case AO_COMMAND_CLOSE:
+		case Command::CLOSE:
 			assert(open);
 			assert(pipe != nullptr);
 
@@ -585,7 +625,7 @@ AudioOutput::Task()
 			CommandFinished();
 			break;
 
-		case AO_COMMAND_PAUSE:
+		case Command::PAUSE:
 			if (!open) {
 				/* the output has failed after
 				   audio_output_all_pause() has
@@ -602,7 +642,7 @@ AudioOutput::Task()
 			   the new command first */
 			continue;
 
-		case AO_COMMAND_DRAIN:
+		case Command::DRAIN:
 			if (open) {
 				assert(current_chunk == nullptr);
 				assert(pipe->Peek() == nullptr);
@@ -615,7 +655,7 @@ AudioOutput::Task()
 			CommandFinished();
 			continue;
 
-		case AO_COMMAND_CANCEL:
+		case Command::CANCEL:
 			current_chunk = nullptr;
 
 			if (open) {
@@ -627,7 +667,7 @@ AudioOutput::Task()
 			CommandFinished();
 			continue;
 
-		case AO_COMMAND_KILL:
+		case Command::KILL:
 			current_chunk = nullptr;
 			CommandFinished();
 			mutex.unlock();
@@ -639,7 +679,7 @@ AudioOutput::Task()
 			   chunks in the pipe */
 			continue;
 
-		if (command == AO_COMMAND_NONE) {
+		if (command == Command::NONE) {
 			woken_for_play = false;
 			cond.wait(mutex);
 		}
@@ -656,7 +696,7 @@ AudioOutput::Task(void *arg)
 void
 AudioOutput::StartThread()
 {
-	assert(command == AO_COMMAND_NONE);
+	assert(command == Command::NONE);
 
 	Error error;
 	if (!thread.Start(Task, this, error))

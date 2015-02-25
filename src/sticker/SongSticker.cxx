@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,46 +23,48 @@
 #include "db/LightSong.hxx"
 #include "db/Interface.hxx"
 #include "util/Error.hxx"
-
-#include <glib.h>
+#include "util/Alloc.hxx"
 
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 
 std::string
-sticker_song_get_value(const LightSong &song, const char *name)
+sticker_song_get_value(const LightSong &song, const char *name, Error &error)
 {
 	const auto uri = song.GetURI();
-	return sticker_load_value("song", uri.c_str(), name);
+	return sticker_load_value("song", uri.c_str(), name, error);
 }
 
 bool
 sticker_song_set_value(const LightSong &song,
-		       const char *name, const char *value)
+		       const char *name, const char *value,
+		       Error &error)
 {
 	const auto uri = song.GetURI();
-	return sticker_store_value("song", uri.c_str(), name, value);
+	return sticker_store_value("song", uri.c_str(), name, value, error);
 }
 
 bool
-sticker_song_delete(const LightSong &song)
+sticker_song_delete(const LightSong &song, Error &error)
 {
 	const auto uri = song.GetURI();
-	return sticker_delete("song", uri.c_str());
+	return sticker_delete("song", uri.c_str(), error);
 }
 
 bool
-sticker_song_delete_value(const LightSong &song, const char *name)
+sticker_song_delete_value(const LightSong &song, const char *name,
+			  Error &error)
 {
 	const auto uri = song.GetURI();
-	return sticker_delete_value("song", uri.c_str(), name);
+	return sticker_delete_value("song", uri.c_str(), name, error);
 }
 
-struct sticker *
-sticker_song_get(const LightSong &song)
+Sticker *
+sticker_song_get(const LightSong &song, Error &error)
 {
 	const auto uri = song.GetURI();
-	return sticker_load("song", uri.c_str());
+	return sticker_load("song", uri.c_str(), error);
 }
 
 struct sticker_song_find_data {
@@ -95,9 +97,11 @@ sticker_song_find_cb(const char *uri, const char *value, void *user_data)
 
 bool
 sticker_song_find(const Database &db, const char *base_uri, const char *name,
+		  StickerOperator op, const char *value,
 		  void (*func)(const LightSong &song, const char *value,
 			       void *user_data),
-		  void *user_data)
+		  void *user_data,
+		  Error &error)
 {
 	struct sticker_song_find_data data;
 	data.db = &db;
@@ -109,16 +113,17 @@ sticker_song_find(const Database &db, const char *base_uri, const char *name,
 	if (*data.base_uri != 0)
 		/* append slash to base_uri */
 		data.base_uri = allocated =
-			g_strconcat(data.base_uri, "/", nullptr);
+			xstrcatdup(data.base_uri, "/");
 	else
 		/* searching in root directory - no trailing slash */
 		allocated = nullptr;
 
 	data.base_uri_length = strlen(data.base_uri);
 
-	bool success = sticker_find("song", data.base_uri, name,
-				    sticker_song_find_cb, &data);
-	g_free(allocated);
+	bool success = sticker_find("song", data.base_uri, name, op, value,
+				    sticker_song_find_cb, &data,
+				    error);
+	free(allocated);
 
 	return success;
 }

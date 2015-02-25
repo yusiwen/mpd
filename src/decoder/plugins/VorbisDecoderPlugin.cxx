@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -194,7 +194,7 @@ vorbis_interleave(float *dest, const float *const*src,
 /* public */
 
 static bool
-vorbis_init(gcc_unused const config_param &param)
+vorbis_init(gcc_unused const ConfigBlock &block)
 {
 #ifndef HAVE_TREMOR
 	LogDebug(vorbis_domain, vorbis_version_string());

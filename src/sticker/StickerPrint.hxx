@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,7 +20,7 @@
 #ifndef MPD_STICKER_PRINT_HXX
 #define MPD_STICKER_PRINT_HXX
 
-struct sticker;
+struct Sticker;
 class Client;
 
 /**
@@ -33,6 +33,6 @@ sticker_print_value(Client &client, const char *name, const char *value);
  * Sends all sticker values to the client.
  */
 void
-sticker_print(Client &client, const sticker &sticker);
+sticker_print(Client &client, const Sticker &sticker);
 
 #endif

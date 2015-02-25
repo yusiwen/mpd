@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -119,4 +119,24 @@ string_array_contains(const char *const* haystack, const char *needle)
 			return true;
 
 	return false;
+}
+
+void
+ToUpperASCII(char *dest, const char *src, size_t size)
+{
+	assert(dest != nullptr);
+	assert(src != nullptr);
+	assert(size > 1);
+
+	char *const end = dest + size - 1;
+
+	do {
+		char ch = *src++;
+		if (ch == 0)
+			break;
+
+		*dest++ = ToUpperASCII(ch);
+	} while (dest < end);
+
+	*dest = 0;
 }

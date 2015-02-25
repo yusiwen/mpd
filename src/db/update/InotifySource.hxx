@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -41,8 +41,8 @@ public:
 	}
 
 	/**
-	 * Creates a new inotify source and registers it in the GLib main
-	 * loop.
+	 * Creates a new inotify source and registers it in the
+	 * #EventLoop.
 	 *
 	 * @param a callback invoked for events received from the kernel
 	 */

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,8 +23,8 @@
 bool
 get_bool(const char *value, bool *value_r)
 {
-	static const char *t[] = { "yes", "true", "1", nullptr };
-	static const char *f[] = { "no", "false", "0", nullptr };
+	static const char *const t[] = { "yes", "true", "1", nullptr };
+	static const char *const f[] = { "no", "false", "0", nullptr };
 
 	if (string_array_contains(t, value)) {
 		*value_r = true;

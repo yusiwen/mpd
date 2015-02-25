@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -137,7 +137,7 @@ CompositeStorage::Directory::Make(const char *uri)
 	Directory *directory = this;
 	while (*uri != 0) {
 		const std::string name = NextSegment(uri);
-#if defined(__clang__) || GCC_CHECK_VERSION(4,8)
+#if CLANG_OR_GCC_VERSION(4,8)
 		auto i = directory->children.emplace(std::move(name),
 						     Directory());
 #else

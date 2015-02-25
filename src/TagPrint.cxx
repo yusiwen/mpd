@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,8 +22,6 @@
 #include "tag/Tag.hxx"
 #include "tag/TagSettings.h"
 #include "client/Client.hxx"
-
-#define SONG_TIME "Time: "
 
 void tag_print_types(Client &client)
 {
@@ -53,7 +51,10 @@ tag_print_values(Client &client, const Tag &tag)
 void tag_print(Client &client, const Tag &tag)
 {
 	if (!tag.duration.IsNegative())
-		client_printf(client, SONG_TIME "%i\n", tag.duration.RoundS());
+		client_printf(client, "Time: %i\n"
+			      "duration: %1.3f\n",
+			      tag.duration.RoundS(),
+			      tag.duration.ToDoubleS());
 
 	tag_print_values(client, tag);
 }

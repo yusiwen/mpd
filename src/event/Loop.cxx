@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -179,9 +179,10 @@ EventLoop::Run()
 		mutex.lock();
 		HandleDeferred();
 		busy = false;
+		const bool _again = again;
 		mutex.unlock();
 
-		if (again)
+		if (_again)
 			/* re-evaluate timers because one of the
 			   IdleMonitors may have added a new
 			   timeout */

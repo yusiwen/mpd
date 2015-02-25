@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,7 +18,7 @@
  */
 
 #include "config.h"
-#include "config/ConfigData.hxx"
+#include "config/Param.hxx"
 #include "config/ConfigGlobal.hxx"
 #include "fs/Path.hxx"
 #include "AudioParser.hxx"
@@ -32,10 +32,6 @@
 #include "util/ConstBuffer.hxx"
 #include "system/FatalError.hxx"
 #include "Log.hxx"
-
-#ifdef HAVE_GLIB
-#include <glib.h>
-#endif
 
 #include <assert.h>
 #include <string.h>
@@ -54,8 +50,8 @@ mixer_set_volume(gcc_unused Mixer *mixer,
 static Filter *
 load_filter(const char *name)
 {
-	const config_param *param =
-		config_find_block(CONF_AUDIO_FILTER, "name", name);
+	const auto *param = config_find_block(ConfigBlockOption::AUDIO_FILTER,
+					      "name", name);
 	if (param == NULL) {
 		fprintf(stderr, "No such configured filter: %s\n", name);
 		return nullptr;
@@ -85,14 +81,6 @@ int main(int argc, char **argv)
 	const Path config_path = Path::FromFS(argv[1]);
 
 	AudioFormat audio_format(44100, SampleFormat::S16, 2);
-
-	/* initialize GLib */
-
-#ifdef HAVE_GLIB
-#if !GLIB_CHECK_VERSION(2,32,0)
-	g_thread_init(NULL);
-#endif
-#endif
 
 	/* read configuration file (mpd.conf) */
 

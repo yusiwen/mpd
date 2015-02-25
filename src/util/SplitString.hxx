@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,52 +20,20 @@
 #ifndef MPD_SPLIT_STRING_HXX
 #define MPD_SPLIT_STRING_HXX
 
-#include "Compiler.h"
-
-#include <assert.h>
+#include <forward_list>
+#include <string>
 
 /**
- * Split a given constant string at a separator character.  Duplicates
- * the first part to be able to null-terminate it.
+ * Split a string at a certain separator character into sub strings
+ * and returns a list of these.
+ *
+ * Two consecutive separator characters result in an empty string in
+ * the list.
+ *
+ * An empty input string, as a special case, results in an empty list
+ * (and not a list with an empty string).
  */
-class SplitString {
-	char *first;
-	const char *second;
-
-public:
-	SplitString(const char *s, char separator);
-
-	~SplitString() {
-		delete[] first;
-	}
-
-	/**
-	 * Was the separator found?
-	 */
-	bool IsDefined() const {
-		return first != nullptr;
-	}
-
-	/**
-	 * Is the first part empty?
-	 */
-	bool IsEmpty() const {
-		assert(IsDefined());
-
-		return *first == 0;
-	}
-
-	const char *GetFirst() const {
-		assert(IsDefined());
-
-		return first;
-	}
-
-	const char *GetSecond() const {
-		assert(IsDefined());
-
-		return second;
-	}
-};
+std::forward_list<std::string>
+SplitString(const char *s, char separator, bool strip=true);
 
 #endif

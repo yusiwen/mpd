@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,15 +24,14 @@
 #include "pcm/Volume.hxx"
 #include "Main.hxx"
 #include "event/Loop.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Block.hxx"
 #include "util/Error.hxx"
 #include "Log.hxx"
-
-#include <glib.h>
 
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 const struct filter_plugin *
 filter_plugin_by_name(gcc_unused const char *name)
@@ -50,17 +49,13 @@ int main(int argc, gcc_unused char **argv)
 		return EXIT_FAILURE;
 	}
 
-#if !GLIB_CHECK_VERSION(2,32,0)
-	g_thread_init(NULL);
-#endif
-
 	EventLoop event_loop;
 
 	Error error;
 	Mixer *mixer = mixer_new(event_loop, alsa_mixer_plugin,
 				 *(AudioOutput *)nullptr,
 				 *(MixerListener *)nullptr,
-				 config_param(), error);
+				 ConfigBlock(), error);
 	if (mixer == NULL) {
 		LogError(error, "mixer_new() failed");
 		return EXIT_FAILURE;

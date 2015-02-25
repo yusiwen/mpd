@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,6 +21,7 @@
 #define MPD_UPNP_OBJECT_HXX
 
 #include "tag/Tag.hxx"
+#include "Compiler.h"
 
 #include <string>
 
@@ -50,8 +51,16 @@ public:
 		PLAYLIST,
 	};
 
-	std::string m_id; // ObjectId
-	std::string m_pid; // Parent ObjectId
+	/**
+	 * ObjectId
+	 */
+	std::string id;
+
+	/**
+	 * Parent's ObjectId
+	 */
+	std::string parent_id;
+	
 	std::string url;
 
 	/**
@@ -71,14 +80,20 @@ public:
 
 	UPnPDirObject &operator=(UPnPDirObject &&) = default;
 
-	void clear()
-	{
-		m_id.clear();
-		m_pid.clear();
+	void Clear() {
+		id.clear();
+		parent_id.clear();
 		url.clear();
 		type = Type::UNKNOWN;
 		item_class = ItemClass::UNKNOWN;
 		tag.Clear();
+	}
+
+	gcc_pure
+	bool Check() const {
+		return !id.empty() && !parent_id.empty() && !name.empty() &&
+			(type != UPnPDirObject::Type::ITEM ||
+			 item_class != UPnPDirObject::ItemClass::UNKNOWN);
 	}
 };
 

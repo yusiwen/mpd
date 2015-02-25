@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,8 +30,6 @@
 #include "fs/Path.hxx"
 #include "util/Error.hxx"
 
-#include <glib.h>
-
 #include <unistd.h>
 #include <stdlib.h>
 
@@ -54,12 +52,6 @@ main(int argc, char **argv)
 
 	const char *plugin_name = argv[1];
 	const Path path = Path::FromFS(argv[2]);
-
-	/* initialize GLib */
-
-#if !GLIB_CHECK_VERSION(2,32,0)
-	g_thread_init(NULL);
-#endif
 
 	/* initialize MPD */
 

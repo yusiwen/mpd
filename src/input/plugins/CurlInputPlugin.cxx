@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 #include "../IcyInputStream.hxx"
 #include "../InputPlugin.hxx"
 #include "config/ConfigGlobal.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Block.hxx"
 #include "tag/Tag.hxx"
 #include "tag/TagBuilder.hxx"
 #include "event/SocketMonitor.hxx"
@@ -108,6 +108,13 @@ struct CurlInputStream final : public AsyncInputStream {
 	 * The mutex must not be locked.
 	 */
 	void FreeEasyIndirect();
+
+	/**
+	 * Called when a new response begins.  This is used to discard
+	 * headers from previous responses (for example authentication
+	 * and redirects).
+	 */
+	void ResponseBoundary();
 
 	void HeaderReceived(const char *name, std::string &&value);
 
@@ -528,7 +535,7 @@ CurlMulti::OnTimeout()
  */
 
 static InputPlugin::InitResult
-input_curl_init(const config_param &param, Error &error)
+input_curl_init(const ConfigBlock &block, Error &error)
 {
 	CURLcode code = curl_global_init(CURL_GLOBAL_ALL);
 	if (code != CURLE_OK) {
@@ -550,22 +557,22 @@ input_curl_init(const config_param &param, Error &error)
 
 	http_200_aliases = curl_slist_append(http_200_aliases, "ICY 200 OK");
 
-	proxy = param.GetBlockValue("proxy");
-	proxy_port = param.GetBlockValue("proxy_port", 0u);
-	proxy_user = param.GetBlockValue("proxy_user");
-	proxy_password = param.GetBlockValue("proxy_password");
+	proxy = block.GetBlockValue("proxy");
+	proxy_port = block.GetBlockValue("proxy_port", 0u);
+	proxy_user = block.GetBlockValue("proxy_user");
+	proxy_password = block.GetBlockValue("proxy_password");
 
 	if (proxy == nullptr) {
 		/* deprecated proxy configuration */
-		proxy = config_get_string(CONF_HTTP_PROXY_HOST, nullptr);
-		proxy_port = config_get_positive(CONF_HTTP_PROXY_PORT, 0);
-		proxy_user = config_get_string(CONF_HTTP_PROXY_USER, nullptr);
-		proxy_password = config_get_string(CONF_HTTP_PROXY_PASSWORD,
+		proxy = config_get_string(ConfigOption::HTTP_PROXY_HOST, nullptr);
+		proxy_port = config_get_positive(ConfigOption::HTTP_PROXY_PORT, 0);
+		proxy_user = config_get_string(ConfigOption::HTTP_PROXY_USER, nullptr);
+		proxy_password = config_get_string(ConfigOption::HTTP_PROXY_PASSWORD,
 						   "");
 	}
 
-	verify_peer = param.GetBlockValue("verify_peer", true);
-	verify_host = param.GetBlockValue("verify_host", true);
+	verify_peer = block.GetBlockValue("verify_peer", true);
+	verify_host = block.GetBlockValue("verify_host", true);
 
 	CURLM *multi = curl_multi_init();
 	if (multi == nullptr) {
@@ -598,6 +605,24 @@ CurlInputStream::~CurlInputStream()
 }
 
 inline void
+CurlInputStream::ResponseBoundary()
+{
+	/* undo all effects of HeaderReceived() because the previous
+	   response was not applicable for this stream */
+
+	if (IsSeekPending())
+		/* don't update metadata while seeking */
+		return;
+
+	seekable = false;
+	size = UNKNOWN_SIZE;
+	ClearMimeType();
+	ClearTag();
+
+	// TODO: reset the IcyInputStream?
+}
+
+inline void
 CurlInputStream::HeaderReceived(const char *name, std::string &&value)
 {
 	if (IsSeekPending())
@@ -624,7 +649,10 @@ CurlInputStream::HeaderReceived(const char *name, std::string &&value)
 			return;
 
 		size_t icy_metaint = ParseUint64(value.c_str());
+#ifndef WIN32
+		/* Windows doesn't know "%z" */
 		FormatDebug(curl_domain, "icy-metaint=%zu", icy_metaint);
+#endif
 
 		if (icy_metaint > 0) {
 			icy->Enable(icy_metaint);
@@ -645,6 +673,11 @@ input_curl_headerfunction(void *ptr, size_t size, size_t nmemb, void *stream)
 	size *= nmemb;
 
 	const char *header = (const char *)ptr;
+	if (size > 5 && memcmp(header, "HTTP/", 5) == 0) {
+		c.ResponseBoundary();
+		return size;
+	}
+
 	const char *end = header + size;
 
 	char name[64];
@@ -720,10 +753,10 @@ CurlInputStream::InitEasy(Error &error)
 			 input_curl_writefunction);
 	curl_easy_setopt(easy, CURLOPT_WRITEDATA, this);
 	curl_easy_setopt(easy, CURLOPT_HTTP200ALIASES, http_200_aliases);
-	curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1);
-	curl_easy_setopt(easy, CURLOPT_NETRC, 1);
-	curl_easy_setopt(easy, CURLOPT_MAXREDIRS, 5);
-	curl_easy_setopt(easy, CURLOPT_FAILONERROR, true);
+	curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1l);
+	curl_easy_setopt(easy, CURLOPT_NETRC, 1l);
+	curl_easy_setopt(easy, CURLOPT_MAXREDIRS, 5l);
+	curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1l);
 	curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, error_buffer);
 	curl_easy_setopt(easy, CURLOPT_NOPROGRESS, 1l);
 	curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1l);

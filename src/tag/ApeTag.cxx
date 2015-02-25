@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,7 +30,6 @@
 #include <string.h>
 
 const struct tag_table ape_tags[] = {
-	{ "album artist", TAG_ALBUM_ARTIST },
 	{ "year", TAG_DATE },
 	{ nullptr, TAG_NUM_OF_ITEM_TYPES }
 };

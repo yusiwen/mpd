@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -47,7 +47,8 @@ CheckDirectoryReadable(Path path_fs)
 	}
 
 #ifndef WIN32
-	const auto x = AllocatedPath::Build(path_fs, ".");
+	const auto x = AllocatedPath::Build(path_fs,
+					    PathTraitsFS::CURRENT_DIRECTORY);
 	if (!StatFile(x, st) && errno == EACCES)
 		FormatError(config_domain,
 			    "No permission to traverse (\"execute\") directory: %s",

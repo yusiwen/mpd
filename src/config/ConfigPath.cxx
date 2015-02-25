@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -70,7 +70,7 @@ GetHome(Error &error)
 static AllocatedPath
 GetConfiguredHome(Error &error)
 {
-	const char *user = config_get_string(CONF_USER, nullptr);
+	const char *user = config_get_string(ConfigOption::USER, nullptr);
 	return user != nullptr
 		? GetHome(user, error)
 		: GetHome(error);

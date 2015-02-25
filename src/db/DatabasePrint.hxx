@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -36,6 +36,12 @@ class Error;
 bool
 db_selection_print(Client &client, const DatabaseSelection &selection,
 		   bool full, bool base, Error &error);
+
+bool
+db_selection_print(Client &client, const DatabaseSelection &selection,
+		   bool full, bool base,
+		   unsigned window_start, unsigned window_end,
+		   Error &error);
 
 bool
 PrintUniqueTags(Client &client, unsigned type, uint32_t group_mask,

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -402,7 +402,8 @@ Queue::CountSamePriority(unsigned start_order, uint8_t priority) const
 }
 
 bool
-Queue::SetPriority(unsigned position, uint8_t priority, int after_order)
+Queue::SetPriority(unsigned position, uint8_t priority, int after_order,
+		   bool reorder)
 {
 	assert(position < length);
 
@@ -414,7 +415,7 @@ Queue::SetPriority(unsigned position, uint8_t priority, int after_order)
 	item->version = version;
 	item->priority = priority;
 
-	if (!random)
+	if (!random || !reorder)
 		/* don't reorder if not in random mode */
 		return true;
 

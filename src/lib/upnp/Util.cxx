@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -37,34 +37,6 @@ trimstring(std::string &s, const char *ws)
 	pos = s.find_last_not_of(ws);
 	if (pos != std::string::npos && pos != s.length()-1)
 		s.replace(pos + 1, std::string::npos, std::string());
-}
-
-std::string
-caturl(const std::string &s1, const std::string &s2)
-{
-	if (s2.front() == '/') {
-		/* absolute path: replace the whole URI path in s1 */
-
-		auto i = s1.find("://");
-		if (i == s1.npos)
-			/* no scheme: override s1 completely */
-			return s2;
-
-		/* find the first slash after the host part */
-		i = s1.find('/', i + 3);
-		if (i == s1.npos)
-			/* there's no URI path - simply append s2 */
-			i = s1.length();
-
-		return s1.substr(0, i) + s2;
-	}
-
-	std::string out(s1);
-	if (out.back() != '/')
-		out.push_back('/');
-
-	out += s2;
-	return out;
 }
 
 static void

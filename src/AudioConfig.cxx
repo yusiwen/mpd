@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 #include "AudioConfig.hxx"
 #include "AudioFormat.hxx"
 #include "AudioParser.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Param.hxx"
 #include "config/ConfigGlobal.hxx"
 #include "config/ConfigOption.hxx"
 #include "util/Error.hxx"
@@ -39,7 +39,7 @@ getOutputAudioFormat(AudioFormat inAudioFormat)
 
 void initAudioConfig(void)
 {
-	const struct config_param *param = config_get_param(CONF_AUDIO_OUTPUT_FORMAT);
+	const struct config_param *param = config_get_param(ConfigOption::AUDIO_OUTPUT_FORMAT);
 
 	if (param == nullptr)
 		return;

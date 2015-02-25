@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -31,7 +31,7 @@
 #include "system/ByteOrder.hxx"
 #include "fs/AllocatedPath.hxx"
 #include "Log.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Block.hxx"
 #include "config/ConfigError.hxx"
 
 #include <stdio.h>
@@ -39,7 +39,6 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdlib.h>
-#include <glib.h>
 #include <assert.h>
 
 #ifdef HAVE_CDIO_PARANOIA_PARANOIA_H
@@ -107,9 +106,9 @@ static constexpr Domain cdio_domain("cdio");
 static bool default_reverse_endian;
 
 static InputPlugin::InitResult
-input_cdio_init(const config_param &param, Error &error)
+input_cdio_init(const ConfigBlock &block, Error &error)
 {
-	const char *value = param.GetBlockValue("default_byte_order");
+	const char *value = block.GetBlockValue("default_byte_order");
 	if (value != nullptr) {
 		if (strcmp(value, "little_endian") == 0)
 			default_reverse_endian = IsBigEndian();
@@ -149,7 +148,7 @@ parse_cdio_uri(struct cdio_uri *dest, const char *src, Error &error)
 	const char *slash = strrchr(src, '/');
 	if (slash == nullptr) {
 		/* play the whole CD in the specified drive */
-		g_strlcpy(dest->device, src, sizeof(dest->device));
+		CopyString(dest->device, src, sizeof(dest->device));
 		dest->track = -1;
 		return true;
 	}

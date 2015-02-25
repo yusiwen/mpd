@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 
 #include <upnp/upnptools.h>
 
+#include <stdlib.h>
 #include <string.h>
 
 // The service type string we are looking for.
@@ -106,12 +107,12 @@ UPnPDeviceDirectory::LockRemove(const std::string &id)
 }
 
 inline void
-UPnPDeviceDirectory::discoExplorer()
+UPnPDeviceDirectory::Explore()
 {
 	for (;;) {
 		DiscoveredTask *tsk = 0;
-		if (!discoveredQueue.take(tsk)) {
-			discoveredQueue.workerExit();
+		if (!queue.take(tsk)) {
+			queue.workerExit();
 			return;
 		}
 
@@ -127,7 +128,7 @@ UPnPDeviceDirectory::discoExplorer()
 		}
 
 		// Update or insert the device
-		ContentDirectoryDescriptor d(std::move(tsk->deviceId),
+		ContentDirectoryDescriptor d(std::move(tsk->device_id),
 					     MonotonicClockS(), tsk->expires);
 
 		{
@@ -147,10 +148,10 @@ UPnPDeviceDirectory::discoExplorer()
 }
 
 void *
-UPnPDeviceDirectory::discoExplorer(void *ctx)
+UPnPDeviceDirectory::Explore(void *ctx)
 {
 	UPnPDeviceDirectory &directory = *(UPnPDeviceDirectory *)ctx;
-	directory.discoExplorer();
+	directory.Explore();
 	return (void*)1;
 }
 
@@ -160,7 +161,7 @@ UPnPDeviceDirectory::OnAlive(Upnp_Discovery *disco)
 	if (isMSDevice(disco->DeviceType) ||
 	    isCDService(disco->ServiceType)) {
 		DiscoveredTask *tp = new DiscoveredTask(disco);
-		if (discoveredQueue.put(tp))
+		if (queue.put(tp))
 			return UPNP_E_FINISH;
 	}
 
@@ -209,9 +210,8 @@ UPnPDeviceDirectory::Invoke(Upnp_EventType et, void *evp)
 }
 
 bool
-UPnPDeviceDirectory::expireDevices(Error &error)
+UPnPDeviceDirectory::ExpireDevices(Error &error)
 {
-	const ScopeLock protect(mutex);
 	const unsigned now = MonotonicClockS();
 	bool didsomething = false;
 
@@ -226,7 +226,7 @@ UPnPDeviceDirectory::expireDevices(Error &error)
 	}
 
 	if (didsomething)
-		return search(error);
+		return Search(error);
 
 	return true;
 }
@@ -235,8 +235,8 @@ UPnPDeviceDirectory::UPnPDeviceDirectory(UpnpClient_Handle _handle,
 					 UPnPDiscoveryListener *_listener)
 	:handle(_handle),
 	 listener(_listener),
-	 discoveredQueue("DiscoveredQueue"),
-	 m_searchTimeout(2), m_lastSearch(0)
+	 queue("DiscoveredQueue"),
+	 search_timeout(2), last_search(0)
 {
 }
 
@@ -248,24 +248,24 @@ UPnPDeviceDirectory::~UPnPDeviceDirectory()
 bool
 UPnPDeviceDirectory::Start(Error &error)
 {
-	if (!discoveredQueue.start(1, discoExplorer, this)) {
+	if (!queue.start(1, Explore, this)) {
 		error.Set(upnp_domain, "Discover work queue start failed");
 		return false;
 	}
 
-	return search(error);
+	return Search(error);
 }
 
 bool
-UPnPDeviceDirectory::search(Error &error)
+UPnPDeviceDirectory::Search(Error &error)
 {
 	const unsigned now = MonotonicClockS();
-	if (now - m_lastSearch < 10)
+	if (now - last_search < 10)
 		return true;
-	m_lastSearch = now;
+	last_search = now;
 
 	// We search both for device and service just in case.
-	int code = UpnpSearchAsync(handle, m_searchTimeout,
+	int code = UpnpSearchAsync(handle, search_timeout,
 				   ContentDirectorySType, GetUpnpCookie());
 	if (code != UPNP_E_SUCCESS) {
 		error.Format(upnp_domain, code,
@@ -274,7 +274,7 @@ UPnPDeviceDirectory::search(Error &error)
 		return false;
 	}
 
-	code = UpnpSearchAsync(handle, m_searchTimeout,
+	code = UpnpSearchAsync(handle, search_timeout,
 			       MediaServerDType, GetUpnpCookie());
 	if (code != UPNP_E_SUCCESS) {
 		error.Format(upnp_domain, code,
@@ -287,14 +287,13 @@ UPnPDeviceDirectory::search(Error &error)
 }
 
 bool
-UPnPDeviceDirectory::getDirServices(std::vector<ContentDirectoryService> &out,
+UPnPDeviceDirectory::GetDirectories(std::vector<ContentDirectoryService> &out,
 				    Error &error)
 {
-	// Has locking, do it before our own lock
-	if (!expireDevices(error))
-		return false;
-
 	const ScopeLock protect(mutex);
+
+	if (!ExpireDevices(error))
+		return false;
 
 	for (auto dit = directories.begin();
 	     dit != directories.end(); dit++) {
@@ -309,20 +308,19 @@ UPnPDeviceDirectory::getDirServices(std::vector<ContentDirectoryService> &out,
 }
 
 bool
-UPnPDeviceDirectory::getServer(const char *friendlyName,
+UPnPDeviceDirectory::GetServer(const char *friendly_name,
 			       ContentDirectoryService &server,
 			       Error &error)
 {
-	// Has locking, do it before our own lock
-	if (!expireDevices(error))
-		return false;
-
 	const ScopeLock protect(mutex);
+
+	if (!ExpireDevices(error))
+		return false;
 
 	for (const auto &i : directories) {
 		const auto &device = i.device;
 
-		if (device.friendlyName != friendlyName)
+		if (device.friendlyName != friendly_name)
 			continue;
 
 		for (const auto &service : device.services) {

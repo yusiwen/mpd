@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -39,8 +39,12 @@ public:
 	}
 
 	bool CheckFirstLine() {
-		const char *line = tis.ReadLine();
-		return line != nullptr && strcmp(line, "#EXTM3U") == 0;
+		char *line = tis.ReadLine();
+		if (line == nullptr)
+			return false;
+
+		StripRight(line);
+		return strcmp(line, "#EXTM3U") == 0;
 	}
 
 	virtual DetachedSong *NextSong() override;
@@ -126,6 +130,7 @@ ExtM3uPlaylist::NextSong()
 
 static const char *const extm3u_suffixes[] = {
 	"m3u",
+	"m3u8",
 	nullptr
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -36,7 +36,7 @@
 
 #include <mad.h>
 
-#ifdef HAVE_ID3TAG
+#ifdef ENABLE_ID3TAG
 #include <id3tag.h>
 #endif
 
@@ -107,9 +107,9 @@ mad_fixed_to_24_buffer(int32_t *dest, const struct mad_synth *synth,
 }
 
 static bool
-mp3_plugin_init(gcc_unused const config_param &param)
+mp3_plugin_init(gcc_unused const ConfigBlock &block)
 {
-	gapless_playback = config_get_bool(CONF_GAPLESS_MP3_PLAYBACK,
+	gapless_playback = config_get_bool(ConfigOption::GAPLESS_MP3_PLAYBACK,
 					   DEFAULT_GAPLESS_MP3_PLAYBACK);
 	return true;
 }
@@ -251,7 +251,7 @@ MadDecoder::FillBuffer()
 	return true;
 }
 
-#ifdef HAVE_ID3TAG
+#ifdef ENABLE_ID3TAG
 static bool
 parse_id3_replay_gain_info(ReplayGainInfo &rgi,
 			   struct id3_tag *tag)
@@ -285,7 +285,7 @@ parse_id3_replay_gain_info(ReplayGainInfo &rgi,
 }
 #endif
 
-#ifdef HAVE_ID3TAG
+#ifdef ENABLE_ID3TAG
 gcc_pure
 static MixRampInfo
 parse_id3_mixramp(struct id3_tag *tag)
@@ -317,7 +317,7 @@ parse_id3_mixramp(struct id3_tag *tag)
 inline void
 MadDecoder::ParseId3(size_t tagsize, Tag **mpd_tag)
 {
-#ifdef HAVE_ID3TAG
+#ifdef ENABLE_ID3TAG
 	id3_byte_t *allocated = nullptr;
 
 	const id3_length_t count = stream.bufend - stream.this_frame;
@@ -369,7 +369,7 @@ MadDecoder::ParseId3(size_t tagsize, Tag **mpd_tag)
 	id3_tag_delete(id3_tag);
 
 	delete[] allocated;
-#else /* !HAVE_ID3TAG */
+#else /* !ENABLE_ID3TAG */
 	(void)mpd_tag;
 
 	/* This code is enabled when libid3tag is disabled.  Instead
@@ -386,7 +386,7 @@ MadDecoder::ParseId3(size_t tagsize, Tag **mpd_tag)
 #endif
 }
 
-#ifndef HAVE_ID3TAG
+#ifndef ENABLE_ID3TAG
 /**
  * This function emulates libid3tag when it is disabled.  Instead of
  * doing a real analyzation of the frame, it just checks whether the
@@ -402,7 +402,7 @@ id3_tag_query(const void *p0, size_t length)
 		? (p[8] << 7) + p[9] + 10
 		: 0;
 }
-#endif /* !HAVE_ID3TAG */
+#endif /* !ENABLE_ID3TAG */
 
 static enum mp3_action
 RecoverFrameError(struct mad_stream &stream)
@@ -504,10 +504,10 @@ struct xing {
 	enum xing_magic magic;  /* header magic */
 };
 
-static const unsigned XING_FRAMES = 1;
-static const unsigned XING_BYTES = 2;
-static const unsigned XING_TOC = 4;
-static const unsigned XING_SCALE = 8;
+static constexpr unsigned XING_FRAMES = 1;
+static constexpr unsigned XING_BYTES = 2;
+static constexpr unsigned XING_TOC = 4;
+static constexpr unsigned XING_SCALE = 8;
 
 struct lame_version {
 	unsigned major;
@@ -657,7 +657,7 @@ parse_lame(struct lame *lame, struct mad_bitptr *ptr, int *bitlen)
 	unsigned name = mad_bit_read(ptr, 3); /* gain name */
 	unsigned orig = mad_bit_read(ptr, 3); /* gain originator */
 	unsigned sign = mad_bit_read(ptr, 1); /* sign bit */
-	unsigned gain = mad_bit_read(ptr, 9); /* gain*10 */
+	int gain = mad_bit_read(ptr, 9); /* gain*10 */
 	if (gain && name == 1 && orig != 0) {
 		lame->track_gain = ((sign ? -gain : gain) / 10.0) + adj;
 		FormatDebug(mad_domain, "LAME track gain found: %f",

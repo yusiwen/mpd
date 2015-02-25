@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -100,7 +100,7 @@ UpnpNeighborExplorer::GetList() const
 
 	{
 		Error error;
-		if (!discovery->getDirServices(tmp, error))
+		if (!discovery->GetDirectories(tmp, error))
 			LogError(error);
 	}
 
@@ -127,7 +127,7 @@ UpnpNeighborExplorer::LostUPnP(const ContentDirectoryService &service)
 static NeighborExplorer *
 upnp_neighbor_create(gcc_unused EventLoop &loop,
 		     NeighborListener &listener,
-		     gcc_unused const config_param &param,
+		     gcc_unused const ConfigBlock &block,
 		     gcc_unused Error &error)
 {
 	return new UpnpNeighborExplorer(listener);

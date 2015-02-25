@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -255,20 +255,12 @@ faad_decoder_init(NeAACDecHandle decoder, DecoderBuffer &buffer,
 	}
 
 	uint8_t channels;
-	uint32_t sample_rate;
-#ifdef HAVE_FAAD_LONG
-	/* neaacdec.h declares all arguments as "unsigned long", but
-	   internally expects uint32_t pointers.  To avoid gcc
-	   warnings, use this workaround. */
-	unsigned long *sample_rate_p = (unsigned long *)(void *)&sample_rate;
-#else
-	uint32_t *sample_rate_p = &sample_rate;
-#endif
+	unsigned long sample_rate;
 	long nbytes = NeAACDecInit(decoder,
 				   /* deconst hack, libfaad requires this */
 				   const_cast<unsigned char *>(data.data),
 				   data.size,
-				   sample_rate_p, &channels);
+				   &sample_rate, &channels);
 	if (nbytes < 0) {
 		error.Set(faad_decoder_domain, "Not an AAC stream");
 		return false;

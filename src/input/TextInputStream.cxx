@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -33,11 +33,13 @@ TextInputStream::ReadLine()
 	if (line != nullptr)
 		return line;
 
+	buffer.Shift();
+
 	while (true) {
 		auto dest = buffer.Write();
 		if (dest.size < 2) {
-			/* end of file (or line too long): terminate
-			   the current line */
+			/* line too long: terminate the current
+			   line */
 
 			assert(!dest.IsEmpty());
 			dest[0] = 0;
@@ -64,7 +66,19 @@ TextInputStream::ReadLine()
 		if (line != nullptr)
 			return line;
 
-		if (nbytes == 0)
-			return nullptr;
+		if (nbytes == 0) {
+			/* end of file: see if there's an unterminated
+			   line */
+
+			dest = buffer.Write();
+			assert(!dest.IsEmpty());
+			dest[0] = 0;
+
+			auto r = buffer.Read();
+			buffer.Clear();
+			return r.IsEmpty()
+				? nullptr
+				: r.data;
+		}
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,10 +22,6 @@
 #include "util/Error.hxx"
 #include "util/Domain.hxx"
 #include "LogV.hxx"
-
-#ifdef HAVE_GLIB
-#include <glib.h>
-#endif
 
 #include <unistd.h>
 #include <stdarg.h>
@@ -78,18 +74,31 @@ FatalError(const char *msg, const Error &error)
 	FormatFatalError("%s: %s", msg, error.GetMessage());
 }
 
+#ifdef WIN32
+
+void
+FatalSystemError(const char *msg, DWORD code)
+{
+	char buffer[256];
+	FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM |
+		       FORMAT_MESSAGE_IGNORE_INSERTS,
+		       nullptr, code, 0,
+		       buffer, sizeof(buffer), nullptr);
+	FormatFatalError("%s: %s", msg, buffer);
+}
+
+#endif
+
 void
 FatalSystemError(const char *msg)
 {
-	const char *system_error;
 #ifdef WIN32
-	system_error = g_win32_error_message(GetLastError());
+	FatalSystemError(msg, GetLastError());
 #else
-	system_error = strerror(errno);
-#endif
-
+	const char *system_error = strerror(errno);
 	FormatError(fatal_error_domain, "%s: %s", msg, system_error);
 	Abort();
+#endif
 }
 
 void

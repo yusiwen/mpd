@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -43,12 +43,13 @@ playlist_provider_print(Client &client, const char *uri,
 	DetachedSong *song;
 	while ((song = e.NextSong()) != nullptr) {
 		if (playlist_check_translate_song(*song, base_uri.c_str(),
-						  loader)) {
-			if (detail)
-				song_print_info(client, *song);
-			else
-				song_print_uri(client, *song);
-		}
+						  loader) &&
+		    detail)
+			song_print_info(client, *song);
+		else
+			/* fallback if no detail was requested or no
+			   detail was available */
+			song_print_uri(client, *song);
 
 		delete song;
 	}

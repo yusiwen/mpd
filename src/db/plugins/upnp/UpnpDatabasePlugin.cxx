@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,7 @@
 #include "db/LightDirectory.hxx"
 #include "db/LightSong.hxx"
 #include "db/Stats.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Block.hxx"
 #include "tag/TagBuilder.hxx"
 #include "tag/TagTable.hxx"
 #include "util/Error.hxx"
@@ -78,14 +78,14 @@ public:
 	UpnpDatabase():Database(upnp_db_plugin) {}
 
 	static Database *Create(EventLoop &loop, DatabaseListener &listener,
-				const config_param &param,
+				const ConfigBlock &block,
 				Error &error);
 
 	virtual bool Open(Error &error) override;
 	virtual void Close() override;
 	virtual const LightSong *GetSong(const char *uri_utf8,
 					 Error &error) const override;
-	virtual void ReturnSong(const LightSong *song) const;
+	void ReturnSong(const LightSong *song) const override;
 
 	virtual bool Visit(const DatabaseSelection &selection,
 			   VisitDirectory visit_directory,
@@ -101,10 +101,12 @@ public:
 	virtual bool GetStats(const DatabaseSelection &selection,
 			      DatabaseStats &stats,
 			      Error &error) const override;
-	virtual time_t GetUpdateStamp() const {return 0;}
+	time_t GetUpdateStamp() const override {
+		return 0;
+	}
 
 protected:
-	bool Configure(const config_param &param, Error &error);
+	bool Configure(const ConfigBlock &block, Error &error);
 
 private:
 	bool VisitServer(const ContentDirectoryService &server,
@@ -156,10 +158,10 @@ private:
 Database *
 UpnpDatabase::Create(gcc_unused EventLoop &loop,
 		     gcc_unused DatabaseListener &listener,
-		     const config_param &param, Error &error)
+		     const ConfigBlock &block, Error &error)
 {
 	UpnpDatabase *db = new UpnpDatabase();
-	if (!db->Configure(param, error)) {
+	if (!db->Configure(block, error)) {
 		delete db;
 		return nullptr;
 	}
@@ -171,7 +173,7 @@ UpnpDatabase::Create(gcc_unused EventLoop &loop,
 }
 
 inline bool
-UpnpDatabase::Configure(const config_param &, Error &)
+UpnpDatabase::Configure(const ConfigBlock &, Error &)
 {
 	return true;
 }
@@ -220,7 +222,7 @@ UpnpDatabase::GetSong(const char *uri, Error &error) const
 	}
 
 	ContentDirectoryService server;
-	if (!discovery->getServer(vpath.front().c_str(), server, error))
+	if (!discovery->GetServer(vpath.front().c_str(), server, error))
 		return nullptr;
 
 	vpath.pop_front();
@@ -412,7 +414,7 @@ UpnpDatabase::SearchSongs(const ContentDirectoryService &server,
 		// So we return synthetic and ugly paths based on the object id,
 		// which we later have to detect.
 		const std::string path = songPath(server.getFriendlyName(),
-						  dirent.m_id);
+						  dirent.id);
 		if (!visitSong(std::move(dirent), path.c_str(),
 			       selection, visit_song,
 			       error))
@@ -447,13 +449,13 @@ UpnpDatabase::BuildPath(const ContentDirectoryService &server,
 			std::string &path,
 			Error &error) const
 {
-	const char *pid = idirent.m_id.c_str();
+	const char *pid = idirent.id.c_str();
 	path.clear();
 	UPnPDirObject dirent;
 	while (strcmp(pid, rootid) != 0) {
 		if (!ReadNode(server, pid, dirent, error))
 			return false;
-		pid = dirent.m_pid.c_str();
+		pid = dirent.parent_id.c_str();
 
 		if (path.empty())
 			path = dirent.name;
@@ -509,7 +511,7 @@ UpnpDatabase::Namei(const ContentDirectoryService &server,
 			return false;
 		}
 
-		objid = std::move(child->m_id);
+		objid = std::move(child->id);
 	}
 }
 
@@ -621,7 +623,7 @@ UpnpDatabase::VisitServer(const ContentDirectoryService &server,
 			}
 
 			std::string path = songPath(server.getFriendlyName(),
-						    dirent.m_id);
+						    dirent.id);
 			if (!visitSong(std::move(dirent), path.c_str(),
 				       selection,
 				       visit_song, error))
@@ -640,7 +642,7 @@ UpnpDatabase::VisitServer(const ContentDirectoryService &server,
 	   recursion (1-deep) here, which will handle the "add dir"
 	   case. */
 	if (selection.recursive && selection.filter)
-		return SearchSongs(server, tdirent.m_id.c_str(), selection,
+		return SearchSongs(server, tdirent.id.c_str(), selection,
 				   visit_song, error);
 
 	const char *const base_uri = selection.uri.empty()
@@ -658,7 +660,7 @@ UpnpDatabase::VisitServer(const ContentDirectoryService &server,
 	   and loop here, but it's not useful as mpd will only return
 	   data to the client when we're done anyway. */
 	UPnPDirContent dirbuf;
-	if (!server.readDir(handle, tdirent.m_id.c_str(), dirbuf,
+	if (!server.readDir(handle, tdirent.id.c_str(), dirbuf,
 			    error))
 		return false;
 
@@ -687,7 +689,7 @@ UpnpDatabase::Visit(const DatabaseSelection &selection,
 	auto vpath = stringToTokens(selection.uri, "/", true);
 	if (vpath.empty()) {
 		std::vector<ContentDirectoryService> servers;
-		if (!discovery->getDirServices(servers, error))
+		if (!discovery->GetDirectories(servers, error))
 			return false;
 
 		for (const auto &server : servers) {
@@ -712,7 +714,7 @@ UpnpDatabase::Visit(const DatabaseSelection &selection,
 	vpath.pop_front();
 
 	ContentDirectoryService server;
-	if (!discovery->getServer(servername.c_str(), server, error))
+	if (!discovery->GetServer(servername.c_str(), server, error))
 		return false;
 
 	return VisitServer(server, vpath, selection,
@@ -731,7 +733,7 @@ UpnpDatabase::VisitUniqueTags(const DatabaseSelection &selection,
 		return true;
 
 	std::vector<ContentDirectoryService> servers;
-	if (!discovery->getDirServices(servers, error))
+	if (!discovery->GetDirectories(servers, error))
 		return false;
 
 	std::set<std::string> values;
@@ -747,7 +749,7 @@ UpnpDatabase::VisitUniqueTags(const DatabaseSelection &selection,
 
 			const char *value = dirent.tag.GetValue(tag);
 			if (value != nullptr) {
-#if defined(__clang__) || GCC_CHECK_VERSION(4,8)
+#if CLANG_OR_GCC_VERSION(4,8)
 				values.emplace(value);
 #else
 				values.insert(value);

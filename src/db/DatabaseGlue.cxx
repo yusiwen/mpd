@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,17 +22,17 @@
 #include "Registry.hxx"
 #include "DatabaseError.hxx"
 #include "util/Error.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Block.hxx"
 #include "DatabasePlugin.hxx"
 
 #include <string.h>
 
 Database *
 DatabaseGlobalInit(EventLoop &loop, DatabaseListener &listener,
-		   const config_param &param, Error &error)
+		   const ConfigBlock &block, Error &error)
 {
 	const char *plugin_name =
-		param.GetBlockValue("plugin", "simple");
+		block.GetBlockValue("plugin", "simple");
 
 	const DatabasePlugin *plugin = GetDatabasePluginByName(plugin_name);
 	if (plugin == nullptr) {
@@ -41,5 +41,5 @@ DatabaseGlobalInit(EventLoop &loop, DatabaseListener &listener,
 		return nullptr;
 	}
 
-	return plugin->create(loop, listener, param, error);
+	return plugin->create(loop, listener, block, error);
 }

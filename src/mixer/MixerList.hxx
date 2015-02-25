@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 
 struct MixerPlugin;
 
+extern const MixerPlugin null_mixer_plugin;
 extern const MixerPlugin software_mixer_plugin;
 extern const MixerPlugin alsa_mixer_plugin;
 extern const MixerPlugin oss_mixer_plugin;

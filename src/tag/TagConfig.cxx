@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -35,7 +35,8 @@
 void
 TagLoadConfig()
 {
-	const char *value = config_get_string(CONF_METADATA_TO_USE, nullptr);
+	const char *value = config_get_string(ConfigOption::METADATA_TO_USE,
+					      nullptr);
 	if (value == nullptr)
 		return;
 

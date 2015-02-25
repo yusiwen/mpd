@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,28 +20,19 @@
 #include "config.h"
 #include "encoder/EncoderList.hxx"
 #include "encoder/EncoderPlugin.hxx"
+#include "encoder/EncoderInterface.hxx"
+#include "encoder/ToOutputStream.hxx"
 #include "AudioFormat.hxx"
 #include "AudioParser.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Block.hxx"
+#include "fs/io/StdioOutputStream.hxx"
 #include "util/Error.hxx"
 #include "Log.hxx"
-#include "stdbin.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
-
-static void
-encoder_to_stdout(Encoder &encoder)
-{
-	size_t length;
-	static char buffer[32768];
-
-	while ((length = encoder_read(&encoder, buffer, sizeof(buffer))) > 0) {
-		gcc_unused ssize_t ignored = write(1, buffer, length);
-	}
-}
 
 int main(int argc, char **argv)
 {
@@ -69,11 +60,11 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	config_param param;
-	param.AddBlockParam("quality", "5.0", -1);
+	ConfigBlock block;
+	block.AddBlockParam("quality", "5.0", -1);
 
 	Error error;
-	const auto encoder = encoder_init(*plugin, param, error);
+	const auto encoder = encoder_init(*plugin, block, error);
 	if (encoder == NULL) {
 		LogError(error, "Failed to initialize encoder");
 		return EXIT_FAILURE;
@@ -89,12 +80,17 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (!encoder_open(encoder, audio_format, error)) {
+	if (!encoder->Open(audio_format, error)) {
 		LogError(error, "Failed to open encoder");
 		return EXIT_FAILURE;
 	}
 
-	encoder_to_stdout(*encoder);
+	StdioOutputStream os(stdout);
+
+	if (!EncoderToOutputStream(os, *encoder, error)) {
+		LogError(error);
+		return EXIT_FAILURE;
+	}
 
 	/* do it */
 
@@ -105,7 +101,10 @@ int main(int argc, char **argv)
 			return EXIT_FAILURE;
 		}
 
-		encoder_to_stdout(*encoder);
+		if (!EncoderToOutputStream(os, *encoder, error)) {
+			LogError(error);
+			return EXIT_FAILURE;
+		}
 	}
 
 	if (!encoder_end(encoder, error)) {
@@ -113,8 +112,11 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	encoder_to_stdout(*encoder);
+	if (!EncoderToOutputStream(os, *encoder, error)) {
+		LogError(error);
+		return EXIT_FAILURE;
+	}
 
-	encoder_close(encoder);
-	encoder_finish(encoder);
+	encoder->Close();
+	encoder->Dispose();
 }

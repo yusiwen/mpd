@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,11 +24,12 @@
 #include "ixmlwrap.hxx"
 #include "Util.hxx"
 #include "Action.hxx"
+#include "util/UriUtil.hxx"
 #include "util/Error.hxx"
 
 ContentDirectoryService::ContentDirectoryService(const UPnPDevice &device,
 						 const UPnPService &service)
-	:m_actionURL(caturl(device.URLBase, service.controlURL)),
+	:m_actionURL(uri_apply_base(service.controlURL, device.URLBase)),
 	 m_serviceType(service.serviceType),
 	 m_deviceId(device.UDN),
 	 m_friendlyName(device.friendlyName),

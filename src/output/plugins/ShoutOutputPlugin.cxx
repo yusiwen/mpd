@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,6 +20,7 @@
 #include "config.h"
 #include "ShoutOutputPlugin.hxx"
 #include "../OutputAPI.hxx"
+#include "encoder/EncoderInterface.hxx"
 #include "encoder/EncoderPlugin.hxx"
 #include "encoder/EncoderList.hxx"
 #include "config/ConfigError.hxx"
@@ -67,11 +68,11 @@ struct ShoutOutput final {
 			shout_free(shout_conn);
 	}
 
-	bool Initialize(const config_param &param, Error &error) {
-		return base.Configure(param, error);
+	bool Initialize(const ConfigBlock &block, Error &error) {
+		return base.Configure(block, error);
 	}
 
-	bool Configure(const config_param &param, Error &error);
+	bool Configure(const ConfigBlock &block, Error &error);
 };
 
 static int shout_init_count;
@@ -91,43 +92,43 @@ shout_encoder_plugin_get(const char *name)
 
 gcc_pure
 static const char *
-require_block_string(const config_param &param, const char *name)
+require_block_string(const ConfigBlock &block, const char *name)
 {
-	const char *value = param.GetBlockValue(name);
+	const char *value = block.GetBlockValue(name);
 	if (value == nullptr)
 		FormatFatalError("no \"%s\" defined for shout device defined "
-				 "at line %u\n", name, param.line);
+				 "at line %d\n", name, block.line);
 
 	return value;
 }
 
 inline bool
-ShoutOutput::Configure(const config_param &param, Error &error)
+ShoutOutput::Configure(const ConfigBlock &block, Error &error)
 {
 
 	const AudioFormat audio_format = base.config_audio_format;
 	if (!audio_format.IsFullyDefined()) {
 		error.Set(config_domain,
 			  "Need full audio format specification");
-		return nullptr;
+		return false;
 	}
 
-	const char *host = require_block_string(param, "host");
-	const char *mount = require_block_string(param, "mount");
-	unsigned port = param.GetBlockValue("port", 0u);
+	const char *host = require_block_string(block, "host");
+	const char *mount = require_block_string(block, "mount");
+	unsigned port = block.GetBlockValue("port", 0u);
 	if (port == 0) {
 		error.Set(config_domain, "shout port must be configured");
 		return false;
 	}
 
-	const char *passwd = require_block_string(param, "password");
-	const char *name = require_block_string(param, "name");
+	const char *passwd = require_block_string(block, "password");
+	const char *name = require_block_string(block, "name");
 
-	bool is_public = param.GetBlockValue("public", false);
+	bool is_public = block.GetBlockValue("public", false);
 
-	const char *user = param.GetBlockValue("user", "source");
+	const char *user = block.GetBlockValue("user", "source");
 
-	const char *value = param.GetBlockValue("quality");
+	const char *value = block.GetBlockValue("quality");
 	if (value != nullptr) {
 		char *test;
 		quality = strtod(value, &test);
@@ -140,14 +141,14 @@ ShoutOutput::Configure(const config_param &param, Error &error)
 			return false;
 		}
 
-		if (param.GetBlockValue("bitrate") != nullptr) {
+		if (block.GetBlockValue("bitrate") != nullptr) {
 			error.Set(config_domain,
 				  "quality and bitrate are "
 				  "both defined");
 			return false;
 		}
 	} else {
-		value = param.GetBlockValue("bitrate");
+		value = block.GetBlockValue("bitrate");
 		if (value == nullptr) {
 			error.Set(config_domain,
 				  "neither bitrate nor quality defined");
@@ -164,7 +165,7 @@ ShoutOutput::Configure(const config_param &param, Error &error)
 		}
 	}
 
-	const char *encoding = param.GetBlockValue("encoding", "ogg");
+	const char *encoding = block.GetBlockValue("encoding", "ogg");
 	const auto encoder_plugin = shout_encoder_plugin_get(encoding);
 	if (encoder_plugin == nullptr) {
 		error.Format(config_domain,
@@ -173,7 +174,7 @@ ShoutOutput::Configure(const config_param &param, Error &error)
 		return false;
 	}
 
-	encoder = encoder_init(*encoder_plugin, param, error);
+	encoder = encoder_init(*encoder_plugin, block, error);
 	if (encoder == nullptr)
 		return false;
 
@@ -184,7 +185,7 @@ ShoutOutput::Configure(const config_param &param, Error &error)
 		shout_format = SHOUT_FORMAT_OGG;
 
 	unsigned protocol;
-	value = param.GetBlockValue("protocol");
+	value = block.GetBlockValue("protocol");
 	if (value != nullptr) {
 		if (0 == strcmp(value, "shoutcast") &&
 		    0 != strcmp(encoding, "mp3")) {
@@ -225,21 +226,21 @@ ShoutOutput::Configure(const config_param &param, Error &error)
 	}
 
 	/* optional paramters */
-	timeout = param.GetBlockValue("timeout", DEFAULT_CONN_TIMEOUT);
+	timeout = block.GetBlockValue("timeout", DEFAULT_CONN_TIMEOUT);
 
-	value = param.GetBlockValue("genre");
+	value = block.GetBlockValue("genre");
 	if (value != nullptr && shout_set_genre(shout_conn, value)) {
 		error.Set(shout_output_domain, shout_get_error(shout_conn));
 		return false;
 	}
 
-	value = param.GetBlockValue("description");
+	value = block.GetBlockValue("description");
 	if (value != nullptr && shout_set_description(shout_conn, value)) {
 		error.Set(shout_output_domain, shout_get_error(shout_conn));
 		return false;
 	}
 
-	value = param.GetBlockValue("url");
+	value = block.GetBlockValue("url");
 	if (value != nullptr && shout_set_url(shout_conn, value)) {
 		error.Set(shout_output_domain, shout_get_error(shout_conn));
 		return false;
@@ -271,15 +272,15 @@ ShoutOutput::Configure(const config_param &param, Error &error)
 }
 
 static AudioOutput *
-my_shout_init_driver(const config_param &param, Error &error)
+my_shout_init_driver(const ConfigBlock &block, Error &error)
 {
 	ShoutOutput *sd = new ShoutOutput();
-	if (!sd->Initialize(param, error)) {
+	if (!sd->Initialize(block, error)) {
 		delete sd;
 		return nullptr;
 	}
 
-	if (!sd->Configure(param, error)) {
+	if (!sd->Configure(block, error)) {
 		delete sd;
 		return nullptr;
 	}
@@ -345,7 +346,7 @@ static void close_shout_conn(ShoutOutput * sd)
 		if (encoder_end(sd->encoder, IgnoreError()))
 			write_page(sd, IgnoreError());
 
-		encoder_close(sd->encoder);
+		sd->encoder->Close();
 	}
 
 	if (shout_get_connected(sd->shout_conn) != SHOUTERR_UNCONNECTED &&
@@ -361,7 +362,7 @@ my_shout_finish_driver(AudioOutput *ao)
 {
 	ShoutOutput *sd = (ShoutOutput *)ao;
 
-	encoder_finish(sd->encoder);
+	sd->encoder->Dispose();
 
 	delete sd;
 
@@ -415,13 +416,13 @@ my_shout_open_device(AudioOutput *ao, AudioFormat &audio_format,
 	if (!shout_connect(sd, error))
 		return false;
 
-	if (!encoder_open(sd->encoder, audio_format, error)) {
+	if (!sd->encoder->Open(audio_format, error)) {
 		shout_close(sd->shout_conn);
 		return false;
 	}
 
 	if (!write_page(sd, error)) {
-		encoder_close(sd->encoder);
+		sd->encoder->Close();
 		shout_close(sd->shout_conn);
 		return false;
 	}
@@ -462,7 +463,7 @@ my_shout_pause(AudioOutput *ao)
 }
 
 static void
-shout_tag_to_metadata(const Tag *tag, char *dest, size_t size)
+shout_tag_to_metadata(const Tag &tag, char *dest, size_t size)
 {
 	char artist[size];
 	char title[size];
@@ -470,7 +471,7 @@ shout_tag_to_metadata(const Tag *tag, char *dest, size_t size)
 	artist[0] = 0;
 	title[0] = 0;
 
-	for (const auto &item : *tag) {
+	for (const auto &item : tag) {
 		switch (item.type) {
 		case TAG_ARTIST:
 			strncpy(artist, item.value, size);
@@ -488,7 +489,7 @@ shout_tag_to_metadata(const Tag *tag, char *dest, size_t size)
 }
 
 static void my_shout_set_tag(AudioOutput *ao,
-			     const Tag *tag)
+			     const Tag &tag)
 {
 	ShoutOutput *sd = (ShoutOutput *)ao;
 

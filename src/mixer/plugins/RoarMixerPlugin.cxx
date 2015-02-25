@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * Copyright (C) 2010-2011 Philipp 'ph3-der-loewe' Schafft
  * Copyright (C) 2010-2011 Hans-Kristian 'maister' Arntzen
  *
@@ -48,7 +48,7 @@ public:
 static Mixer *
 roar_mixer_init(gcc_unused EventLoop &event_loop, AudioOutput &ao,
 		MixerListener &listener,
-		gcc_unused const config_param &param,
+		gcc_unused const ConfigBlock &block,
 		gcc_unused Error &error)
 {
 	return new RoarMixer((RoarOutput &)ao, listener);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -36,36 +36,36 @@ class EventLoop;
 class Mixer;
 class MixerListener;
 struct MusicChunk;
-struct config_param;
+struct ConfigBlock;
 struct PlayerControl;
 struct AudioOutputPlugin;
 
-enum audio_output_command {
-	AO_COMMAND_NONE = 0,
-	AO_COMMAND_ENABLE,
-	AO_COMMAND_DISABLE,
-	AO_COMMAND_OPEN,
-
-	/**
-	 * This command is invoked when the input audio format
-	 * changes.
-	 */
-	AO_COMMAND_REOPEN,
-
-	AO_COMMAND_CLOSE,
-	AO_COMMAND_PAUSE,
-
-	/**
-	 * Drains the internal (hardware) buffers of the device.  This
-	 * operation may take a while to complete.
-	 */
-	AO_COMMAND_DRAIN,
-
-	AO_COMMAND_CANCEL,
-	AO_COMMAND_KILL
-};
-
 struct AudioOutput {
+	enum class Command {
+		NONE,
+		ENABLE,
+		DISABLE,
+		OPEN,
+
+		/**
+		 * This command is invoked when the input audio format
+		 * changes.
+		 */
+		REOPEN,
+
+		CLOSE,
+		PAUSE,
+
+		/**
+		 * Drains the internal (hardware) buffers of the device.  This
+		 * operation may take a while to complete.
+		 */
+		DRAIN,
+
+		CANCEL,
+		KILL
+	};
+
 	/**
 	 * The device's configured display name.
 	 */
@@ -231,7 +231,7 @@ struct AudioOutput {
 	/**
 	 * The next command to be performed by the output thread.
 	 */
-	enum audio_output_command command;
+	Command command;
 
 	/**
 	 * The music pipe which provides music chunks to be played.
@@ -272,7 +272,7 @@ struct AudioOutput {
 	AudioOutput(const AudioOutputPlugin &_plugin);
 	~AudioOutput();
 
-	bool Configure(const config_param &param, Error &error);
+	bool Configure(const ConfigBlock &block, Error &error);
 
 	void StartThread();
 	void StopThread();
@@ -284,7 +284,7 @@ struct AudioOutput {
 	}
 
 	bool IsCommandFinished() const {
-		return command == AO_COMMAND_NONE;
+		return command == Command::NONE;
 	}
 
 	/**
@@ -299,7 +299,7 @@ struct AudioOutput {
 	 *
 	 * Caller must lock the mutex.
 	 */
-	void CommandAsync(audio_output_command cmd);
+	void CommandAsync(Command cmd);
 
 	/**
 	 * Sends a command to the #AudioOutput object and waits for
@@ -307,13 +307,13 @@ struct AudioOutput {
 	 *
 	 * Caller must lock the mutex.
 	 */
-	void CommandWait(audio_output_command cmd);
+	void CommandWait(Command cmd);
 
 	/**
 	 * Lock the #AudioOutput object and execute the command
 	 * synchronously.
 	 */
-	void LockCommandWait(audio_output_command cmd);
+	void LockCommandWait(Command cmd);
 
 	/**
 	 * Enables the device.
@@ -383,7 +383,12 @@ private:
 	void Reopen();
 
 	AudioFormat OpenFilter(AudioFormat &format, Error &error_r);
+
+	/**
+	 * Mutex must not be locked.
+	 */
 	void CloseFilter();
+
 	void ReopenFilter();
 
 	/**
@@ -425,7 +430,7 @@ private:
 extern struct notify audio_output_client_notify;
 
 AudioOutput *
-audio_output_new(EventLoop &event_loop, const config_param &param,
+audio_output_new(EventLoop &event_loop, const ConfigBlock &block,
 		 MixerListener &mixer_listener,
 		 PlayerControl &pc,
 		 Error &error);

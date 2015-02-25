@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -52,14 +52,14 @@ song_print_uri(Client &client, const char *uri, bool base)
 			uri = allocated.c_str();
 	}
 
-	client_printf(client, "%s%s\n", SONG_FILE, uri);
+	client_printf(client, SONG_FILE "%s\n", uri);
 }
 
 void
 song_print_uri(Client &client, const LightSong &song, bool base)
 {
 	if (!base && song.directory != nullptr) {
-		client_printf(client, "%s%s/%s\n", SONG_FILE,
+		client_printf(client, SONG_FILE "%s/%s\n",
 			      song.directory, song.uri);
 	} else
 		song_print_uri(client, song.uri, base);
@@ -122,5 +122,8 @@ song_print_info(Client &client, const DetachedSong &song, bool base)
 
 	const auto duration = song.GetDuration();
 	if (!duration.IsNegative())
-		client_printf(client, "Time: %u\n", duration.RoundS());
+		client_printf(client, "Time: %i\n"
+			      "duration: %1.3f\n",
+			      duration.RoundS(),
+			      duration.ToDoubleS());
 }

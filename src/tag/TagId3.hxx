@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,7 @@ struct Tag;
 struct id3_tag;
 class Error;
 
-#ifdef HAVE_ID3TAG
+#ifdef ENABLE_ID3TAG
 
 bool
 tag_id3_scan(Path path_fs,

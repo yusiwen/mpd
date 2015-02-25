@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,11 +23,12 @@
 #include "CommandResult.hxx"
 
 class Client;
+template<typename T> struct ConstBuffer;
 
 CommandResult
-handle_addtagid(Client &client, unsigned argc, char *argv[]);
+handle_addtagid(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_cleartagid(Client &client, unsigned argc, char *argv[]);
+handle_cleartagid(Client &client, ConstBuffer<const char *> args);
 
 #endif

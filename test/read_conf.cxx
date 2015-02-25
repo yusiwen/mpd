@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 	}
 
 	ConfigOption option = ParseConfigOptionName(name);
-	const char *value = option != CONF_MAX
+	const char *value = option != ConfigOption::MAX
 		? config_get_string(option, nullptr)
 		: nullptr;
 	int ret;

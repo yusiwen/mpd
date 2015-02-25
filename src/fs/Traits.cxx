@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -52,7 +52,10 @@ template<typename Traits>
 typename Traits::const_pointer
 GetBasePathImpl(typename Traits::const_pointer p)
 {
+#if !CLANG_CHECK_VERSION(3,6)
+	/* disabled on clang due to -Wtautological-pointer-compare */
 	assert(p != nullptr);
+#endif
 
 	typename Traits::const_pointer sep = Traits::FindLastSeparator(p);
 	return sep != nullptr
@@ -64,11 +67,14 @@ template<typename Traits>
 typename Traits::string
 GetParentPathImpl(typename Traits::const_pointer p)
 {
+#if !CLANG_CHECK_VERSION(3,6)
+	/* disabled on clang due to -Wtautological-pointer-compare */
 	assert(p != nullptr);
+#endif
 
 	typename Traits::const_pointer sep = Traits::FindLastSeparator(p);
 	if (sep == nullptr)
-		return typename Traits::string(".");
+		return typename Traits::string(Traits::CURRENT_DIRECTORY);
 	if (sep == p)
 		return typename Traits::string(p, p + 1);
 #ifdef WIN32

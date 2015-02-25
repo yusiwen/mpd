@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,7 +18,8 @@
  */
 
 #include "config.h"
-#include "system/Resolver.hxx"
+#include "net/Resolver.hxx"
+#include "net/SocketAddress.hxx"
 #include "util/Error.hxx"
 #include "Log.hxx"
 
@@ -50,7 +51,7 @@ int main(int argc, char **argv)
 	}
 
 	for (const struct addrinfo *i = ai; i != NULL; i = i->ai_next) {
-		const auto s = sockaddr_to_string(i->ai_addr, i->ai_addrlen);
+		const auto s = sockaddr_to_string({i->ai_addr, i->ai_addrlen});
 		printf("%s\n", s.c_str());
 	}
 

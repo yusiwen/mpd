@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -34,7 +34,7 @@
 static constexpr Domain xspf_domain("xspf");
 
 /**
- * This is the state object for the GLib XML parser.
+ * This is the state object for our XML parser.
  */
 struct XspfParser {
 	/**

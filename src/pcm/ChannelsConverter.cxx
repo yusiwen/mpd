@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -43,7 +43,7 @@ PcmChannelsConverter::Open(SampleFormat _format,
 	default:
 		error.Format(pcm_domain,
 			     "PCM channel conversion for %s is not implemented",
-			     sample_format_to_string(format));
+			     sample_format_to_string(_format));
 		return false;
 	}
 

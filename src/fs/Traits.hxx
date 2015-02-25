@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -38,14 +38,16 @@
 struct PathTraitsFS {
 	typedef std::string string;
 	typedef char value_type;
-	typedef char *pointer;
-	typedef const char *const_pointer;
+	typedef value_type *pointer;
+	typedef const value_type *const_pointer;
 
 #ifdef WIN32
 	static constexpr value_type SEPARATOR = '\\';
 #else
 	static constexpr value_type SEPARATOR = '/';
 #endif
+
+	static constexpr const_pointer CURRENT_DIRECTORY = ".";
 
 	static constexpr bool IsSeparator(value_type ch) {
 		return
@@ -57,7 +59,11 @@ struct PathTraitsFS {
 
 	gcc_pure gcc_nonnull_all
 	static const_pointer FindLastSeparator(const_pointer p) {
+#if !CLANG_CHECK_VERSION(3,6)
+		/* disabled on clang due to -Wtautological-pointer-compare */
 		assert(p != nullptr);
+#endif
+
 #ifdef WIN32
 		const_pointer pos = p + GetLength(p);
 		while (p != pos && !IsSeparator(*pos))
@@ -77,7 +83,11 @@ struct PathTraitsFS {
 
 	gcc_pure gcc_nonnull_all
 	static bool IsAbsolute(const_pointer p) {
+#if !CLANG_CHECK_VERSION(3,6)
+		/* disabled on clang due to -Wtautological-pointer-compare */
 		assert(p != nullptr);
+#endif
+
 #ifdef WIN32
 		if (IsDrive(p) && IsSeparator(p[2]))
 			return true;
@@ -136,10 +146,12 @@ struct PathTraitsFS {
 struct PathTraitsUTF8 {
 	typedef std::string string;
 	typedef char value_type;
-	typedef char *pointer;
-	typedef const char *const_pointer;
+	typedef value_type *pointer;
+	typedef const value_type *const_pointer;
 
 	static constexpr value_type SEPARATOR = '/';
+
+	static constexpr const_pointer CURRENT_DIRECTORY = ".";
 
 	static constexpr bool IsSeparator(value_type ch) {
 		return ch == SEPARATOR;
@@ -147,7 +159,11 @@ struct PathTraitsUTF8 {
 
 	gcc_pure gcc_nonnull_all
 	static const_pointer FindLastSeparator(const_pointer p) {
+#if !CLANG_CHECK_VERSION(3,6)
+		/* disabled on clang due to -Wtautological-pointer-compare */
 		assert(p != nullptr);
+#endif
+
 		return strrchr(p, SEPARATOR);
 	}
 
@@ -160,7 +176,11 @@ struct PathTraitsUTF8 {
 
 	gcc_pure gcc_nonnull_all
 	static bool IsAbsolute(const_pointer p) {
+#if !CLANG_CHECK_VERSION(3,6)
+		/* disabled on clang due to -Wtautological-pointer-compare */
 		assert(p != nullptr);
+#endif
+
 #ifdef WIN32
 		if (IsDrive(p) && IsSeparator(p[2]))
 			return true;

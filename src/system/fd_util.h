@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * Redistribution and use in source and binary forms, with or without
@@ -103,7 +103,7 @@ socketpair_cloexec_nonblock(int domain, int type, int protocol, int sv[2]);
 
 #endif
 
-#ifdef HAVE_LIBMPDCLIENT
+#ifdef ENABLE_LIBMPDCLIENT
 /* Avoid symbol conflict with statically linked libmpdclient */
 #define socket_cloexec_nonblock socket_cloexec_nonblock_noconflict
 #endif

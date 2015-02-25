@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -156,6 +156,12 @@ public:
 		assert(i != list.end());
 
 		return *i;
+	}
+
+	template<typename F>
+	void ForEach(F &&f) {
+		for (CT &i : list)
+			f(i);
 	}
 };
 

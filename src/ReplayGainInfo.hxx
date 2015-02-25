@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -39,8 +39,7 @@ struct ReplayGainTuple {
 		peak = 0.0;
 	}
 
-	gcc_pure
-	bool IsDefined() const {
+	constexpr bool IsDefined() const {
 		return gain > -100;
 	}
 
@@ -51,6 +50,11 @@ struct ReplayGainTuple {
 
 struct ReplayGainInfo {
 	ReplayGainTuple tuples[2];
+
+	constexpr bool IsDefined() const {
+		return tuples[REPLAY_GAIN_ALBUM].IsDefined() ||
+			tuples[REPLAY_GAIN_TRACK].IsDefined();
+	}
 
 	void Clear() {
 		tuples[REPLAY_GAIN_ALBUM].Clear();

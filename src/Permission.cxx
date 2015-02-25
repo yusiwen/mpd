@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 
 #include "config.h"
 #include "Permission.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Param.hxx"
 #include "config/ConfigGlobal.hxx"
 #include "config/ConfigOption.hxx"
 #include "system/FatalError.hxx"
@@ -92,7 +92,7 @@ void initPermissions(void)
 	permission_default = PERMISSION_READ | PERMISSION_ADD |
 	    PERMISSION_CONTROL | PERMISSION_ADMIN;
 
-	param = config_get_param(CONF_PASSWORD);
+	param = config_get_param(ConfigOption::PASSWORD);
 
 	if (param) {
 		permission_default = 0;
@@ -118,7 +118,7 @@ void initPermissions(void)
 		} while ((param = param->next) != nullptr);
 	}
 
-	param = config_get_param(CONF_DEFAULT_PERMS);
+	param = config_get_param(ConfigOption::DEFAULT_PERMS);
 
 	if (param)
 		permission_default = parsePermissions(param->value.c_str());

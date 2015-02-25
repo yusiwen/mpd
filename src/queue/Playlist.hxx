@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -135,6 +135,17 @@ protected:
 	void OnModified();
 
 	/**
+	 * Called when playback of a new song starts.  Unlike
+	 * QueuedSongStarted(), this also gets called when the user
+	 * manually switches to another song.  It may be used for
+	 * playlist fixups.
+	 *
+	 * The song being started is specified by the #current
+	 * attribute.
+	 */
+	void SongStarted();
+
+	/**
 	 * Updates the "queued song".  Calculates the next song
 	 * according to the current one (if MPD isn't playing, it
 	 * takes the first song), and queues this song.  Clears the
@@ -144,6 +155,24 @@ protected:
 	 * determined by playlist_get_queued_song()
 	 */
 	void UpdateQueuedSong(PlayerControl &pc, const DetachedSong *prev);
+
+	/**
+	 * Queue a song, addressed by its order number.
+	 */
+	void QueueSongOrder(PlayerControl &pc, unsigned order);
+
+	/**
+	 * Called when the player thread has started playing the
+	 * "queued" song, i.e. it has switched from one song to the
+	 * next automatically.
+	 */
+	void QueuedSongStarted(PlayerControl &pc);
+
+	/**
+	 * The player has stopped for some reason.  Check the error,
+	 * and decide whether to re-start playback.
+	 */
+	void ResumePlayback(PlayerControl &pc);
 
 public:
 	void BeginBulk();

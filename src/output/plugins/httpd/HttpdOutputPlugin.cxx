@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,9 +22,11 @@
 #include "HttpdInternal.hxx"
 #include "HttpdClient.hxx"
 #include "output/OutputAPI.hxx"
+#include "encoder/EncoderInterface.hxx"
 #include "encoder/EncoderPlugin.hxx"
 #include "encoder/EncoderList.hxx"
-#include "system/Resolver.hxx"
+#include "net/Resolver.hxx"
+#include "net/SocketAddress.hxx"
 #include "Page.hxx"
 #include "IcyMetaDataServer.hxx"
 #include "system/fd_util.h"
@@ -63,7 +65,7 @@ HttpdOutput::~HttpdOutput()
 		metadata->Unref();
 
 	if (encoder != nullptr)
-		encoder_finish(encoder);
+		encoder->Dispose();
 
 }
 
@@ -90,17 +92,17 @@ HttpdOutput::Unbind()
 }
 
 inline bool
-HttpdOutput::Configure(const config_param &param, Error &error)
+HttpdOutput::Configure(const ConfigBlock &block, Error &error)
 {
 	/* read configuration */
-	name = param.GetBlockValue("name", "Set name in config");
-	genre = param.GetBlockValue("genre", "Set genre in config");
-	website = param.GetBlockValue("website", "Set website in config");
+	name = block.GetBlockValue("name", "Set name in config");
+	genre = block.GetBlockValue("genre", "Set genre in config");
+	website = block.GetBlockValue("website", "Set website in config");
 
-	unsigned port = param.GetBlockValue("port", 8000u);
+	unsigned port = block.GetBlockValue("port", 8000u);
 
 	const char *encoder_name =
-		param.GetBlockValue("encoder", "vorbis");
+		block.GetBlockValue("encoder", "vorbis");
 	const auto encoder_plugin = encoder_plugin_get(encoder_name);
 	if (encoder_plugin == nullptr) {
 		error.Format(httpd_output_domain,
@@ -108,11 +110,11 @@ HttpdOutput::Configure(const config_param &param, Error &error)
 		return false;
 	}
 
-	clients_max = param.GetBlockValue("max_clients", 0u);
+	clients_max = block.GetBlockValue("max_clients", 0u);
 
 	/* set up bind_to_address */
 
-	const char *bind_to_address = param.GetBlockValue("bind_to_address");
+	const char *bind_to_address = block.GetBlockValue("bind_to_address");
 	bool success = bind_to_address != nullptr &&
 		strcmp(bind_to_address, "any") != 0
 		? AddHost(bind_to_address, port, error)
@@ -122,7 +124,7 @@ HttpdOutput::Configure(const config_param &param, Error &error)
 
 	/* initialize encoder */
 
-	encoder = encoder_init(*encoder_plugin, param, error);
+	encoder = encoder_init(*encoder_plugin, block, error);
 	if (encoder == nullptr)
 		return false;
 
@@ -135,17 +137,17 @@ HttpdOutput::Configure(const config_param &param, Error &error)
 }
 
 inline bool
-HttpdOutput::Init(const config_param &param, Error &error)
+HttpdOutput::Init(const ConfigBlock &block, Error &error)
 {
-	return base.Configure(param, error);
+	return base.Configure(block, error);
 }
 
 static AudioOutput *
-httpd_output_init(const config_param &param, Error &error)
+httpd_output_init(const ConfigBlock &block, Error &error)
 {
 	HttpdOutput *httpd = new HttpdOutput(io_thread_get());
 
-	AudioOutput *result = httpd->InitAndConfigure(param, error);
+	AudioOutput *result = httpd->InitAndConfigure(block, error);
 	if (result == nullptr)
 		delete httpd;
 
@@ -200,16 +202,14 @@ HttpdOutput::RunDeferred()
 }
 
 void
-HttpdOutput::OnAccept(int fd, const sockaddr &address,
-		      size_t address_length, gcc_unused int uid)
+HttpdOutput::OnAccept(int fd, SocketAddress address, gcc_unused int uid)
 {
 	/* the listener socket has become readable - a client has
 	   connected */
 
 #ifdef HAVE_LIBWRAP
-	if (address.sa_family != AF_UNIX) {
-		const auto hostaddr = sockaddr_to_string(&address,
-							 address_length);
+	if (address.GetFamily() != AF_UNIX) {
+		const auto hostaddr = sockaddr_to_string(address);
 		// TODO: shall we obtain the program name from argv[0]?
 		const char *progname = "mpd";
 
@@ -229,7 +229,6 @@ HttpdOutput::OnAccept(int fd, const sockaddr &address,
 	}
 #else
 	(void)address;
-	(void)address_length;
 #endif	/* HAVE_WRAP */
 
 	const ScopeLock protect(mutex);
@@ -294,7 +293,7 @@ httpd_output_disable(AudioOutput *ao)
 inline bool
 HttpdOutput::OpenEncoder(AudioFormat &audio_format, Error &error)
 {
-	if (!encoder_open(encoder, audio_format, error))
+	if (!encoder->Open(audio_format, error))
 		return false;
 
 	/* we have to remember the encoder header, i.e. the first
@@ -354,7 +353,7 @@ HttpdOutput::Close()
 	if (header != nullptr)
 		header->Unref();
 
-	encoder_close(encoder);
+	encoder->Close();
 }
 
 static void
@@ -499,10 +498,8 @@ httpd_output_pause(AudioOutput *ao)
 }
 
 inline void
-HttpdOutput::SendTag(const Tag *tag)
+HttpdOutput::SendTag(const Tag &tag)
 {
-	assert(tag != nullptr);
-
 	if (encoder->plugin.tag != nullptr) {
 		/* embed encoder tags */
 
@@ -538,7 +535,7 @@ HttpdOutput::SendTag(const Tag *tag)
 			TAG_NUM_OF_ITEM_TYPES
 		};
 
-		metadata = icy_server_metadata_page(*tag, &types[0]);
+		metadata = icy_server_metadata_page(tag, &types[0]);
 		if (metadata != nullptr) {
 			const ScopeLock protect(mutex);
 			for (auto &client : clients)
@@ -548,7 +545,7 @@ HttpdOutput::SendTag(const Tag *tag)
 }
 
 static void
-httpd_output_tag(AudioOutput *ao, const Tag *tag)
+httpd_output_tag(AudioOutput *ao, const Tag &tag)
 {
 	HttpdOutput *httpd = HttpdOutput::Cast(ao);
 

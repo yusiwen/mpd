@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,13 +23,13 @@
 
 AudioOutput *
 ao_plugin_init(const AudioOutputPlugin *plugin,
-	       const config_param &param,
+	       const ConfigBlock &block,
 	       Error &error)
 {
 	assert(plugin != nullptr);
 	assert(plugin->init != nullptr);
 
-	return plugin->init(param, error);
+	return plugin->init(block, error);
 }
 
 void
@@ -75,7 +75,7 @@ ao_plugin_delay(AudioOutput *ao)
 }
 
 void
-ao_plugin_send_tag(AudioOutput *ao, const Tag *tag)
+ao_plugin_send_tag(AudioOutput *ao, const Tag &tag)
 {
 	if (ao->plugin.send_tag != nullptr)
 		ao->plugin.send_tag(ao, tag);

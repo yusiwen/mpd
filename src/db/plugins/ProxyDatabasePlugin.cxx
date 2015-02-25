@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,7 +30,7 @@
 #include "db/Stats.hxx"
 #include "SongFilter.hxx"
 #include "Compiler.h"
-#include "config/ConfigData.hxx"
+#include "config/Block.hxx"
 #include "tag/TagBuilder.hxx"
 #include "tag/Tag.hxx"
 #include "util/Error.hxx"
@@ -71,6 +71,7 @@ class ProxyDatabase final : public Database, SocketMonitor, IdleMonitor {
 
 	std::string host;
 	unsigned port;
+	bool keepalive;
 
 	struct mpd_connection *connection;
 
@@ -96,14 +97,14 @@ public:
 		 listener(_listener) {}
 
 	static Database *Create(EventLoop &loop, DatabaseListener &listener,
-				const config_param &param,
+				const ConfigBlock &block,
 				Error &error);
 
 	virtual bool Open(Error &error) override;
 	virtual void Close() override;
 	virtual const LightSong *GetSong(const char *uri_utf8,
 				     Error &error) const override;
-	virtual void ReturnSong(const LightSong *song) const;
+	void ReturnSong(const LightSong *song) const override;
 
 	virtual bool Visit(const DatabaseSelection &selection,
 			   VisitDirectory visit_directory,
@@ -128,7 +129,7 @@ public:
 	}
 
 private:
-	bool Configure(const config_param &param, Error &error);
+	bool Configure(const ConfigBlock &block, Error &error);
 
 	bool Connect(Error &error);
 	bool CheckConnection(Error &error);
@@ -320,10 +321,10 @@ SendConstraints(mpd_connection *connection, const DatabaseSelection &selection)
 
 Database *
 ProxyDatabase::Create(EventLoop &loop, DatabaseListener &listener,
-		      const config_param &param, Error &error)
+		      const ConfigBlock &block, Error &error)
 {
 	ProxyDatabase *db = new ProxyDatabase(loop, listener);
-	if (!db->Configure(param, error)) {
+	if (!db->Configure(block, error)) {
 		delete db;
 		db = nullptr;
 	}
@@ -332,10 +333,11 @@ ProxyDatabase::Create(EventLoop &loop, DatabaseListener &listener,
 }
 
 bool
-ProxyDatabase::Configure(const config_param &param, gcc_unused Error &error)
+ProxyDatabase::Configure(const ConfigBlock &block, gcc_unused Error &error)
 {
-	host = param.GetBlockValue("host", "");
-	port = param.GetBlockValue("port", 0u);
+	host = block.GetBlockValue("host", "");
+	port = block.GetBlockValue("port", 0u);
+	keepalive = block.GetBlockValue("keepalive", false);
 
 	return true;
 }
@@ -375,6 +377,10 @@ ProxyDatabase::Connect(Error &error)
 
 		return false;
 	}
+
+#if LIBMPDCLIENT_CHECK_VERSION(2, 10, 0)
+	mpd_connection_set_keepalive(connection, keepalive);
+#endif
 
 	idle_received = unsigned(-1);
 	is_idle = false;
@@ -731,7 +737,7 @@ ProxyDatabase::Visit(const DatabaseSelection &selection,
 {
 	// TODO: eliminate the const_cast
 	if (!const_cast<ProxyDatabase *>(this)->EnsureConnected(error))
-		return nullptr;
+		return false;
 
 	if (!visit_directory && !visit_playlist && selection.recursive &&
 	    (ServerSupportsSearchBase(connection)
@@ -757,7 +763,7 @@ ProxyDatabase::VisitUniqueTags(const DatabaseSelection &selection,
 {
 	// TODO: eliminate the const_cast
 	if (!const_cast<ProxyDatabase *>(this)->EnsureConnected(error))
-		return nullptr;
+		return false;
 
 	enum mpd_tag_type tag_type2 = Convert(tag_type);
 	if (tag_type2 == MPD_TAG_COUNT) {
@@ -810,7 +816,7 @@ ProxyDatabase::GetStats(const DatabaseSelection &selection,
 
 	// TODO: eliminate the const_cast
 	if (!const_cast<ProxyDatabase *>(this)->EnsureConnected(error))
-		return nullptr;
+		return false;
 
 	struct mpd_stats *stats2 =
 		mpd_run_stats(connection);

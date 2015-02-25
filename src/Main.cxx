@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -50,7 +50,6 @@
 #include "AudioConfig.hxx"
 #include "pcm/PcmConvert.hxx"
 #include "unix/SignalHandlers.hxx"
-#include "unix/Daemon.hxx"
 #include "system/FatalError.hxx"
 #include "util/UriUtil.hxx"
 #include "util/Error.hxx"
@@ -59,11 +58,15 @@
 #include "thread/Slack.hxx"
 #include "lib/icu/Init.hxx"
 #include "config/ConfigGlobal.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Param.hxx"
 #include "config/ConfigDefaults.hxx"
 #include "config/ConfigOption.hxx"
 #include "config/ConfigError.hxx"
 #include "Stats.hxx"
+
+#ifdef ENABLE_DAEMON
+#include "unix/Daemon.hxx"
+#endif
 
 #ifdef ENABLE_DATABASE
 #include "db/update/Service.hxx"
@@ -114,6 +117,10 @@
 #include <ws2tcpip.h>
 #endif
 
+#ifdef __BLOCKS__
+#include <dispatch/dispatch.h>
+#endif
+
 #include <limits.h>
 
 static constexpr unsigned DEFAULT_BUFFER_SIZE = 4096;
@@ -129,17 +136,17 @@ Instance *instance;
 
 static StateFile *state_file;
 
-#ifndef ANDROID
+#ifdef ENABLE_DAEMON
 
 static bool
 glue_daemonize_init(const struct options *options, Error &error)
 {
-	auto pid_file = config_get_path(CONF_PID_FILE, error);
+	auto pid_file = config_get_path(ConfigOption::PID_FILE, error);
 	if (pid_file.IsNull() && error.IsDefined())
 		return false;
 
-	daemonize_init(config_get_string(CONF_USER, nullptr),
-		       config_get_string(CONF_GROUP, nullptr),
+	daemonize_init(config_get_string(ConfigOption::USER, nullptr),
+		       config_get_string(ConfigOption::GROUP, nullptr),
 		       std::move(pid_file));
 
 	if (options->kill)
@@ -153,7 +160,7 @@ glue_daemonize_init(const struct options *options, Error &error)
 static bool
 glue_mapper_init(Error &error)
 {
-	auto playlist_dir = config_get_path(CONF_PLAYLIST_DIR, error);
+	auto playlist_dir = config_get_path(ConfigOption::PLAYLIST_DIR, error);
 	if (playlist_dir.IsNull() && error.IsDefined())
 		return false;
 
@@ -248,7 +255,7 @@ glue_sticker_init(void)
 {
 #ifdef ENABLE_SQLITE
 	Error error;
-	auto sticker_file = config_get_path(CONF_STICKER_FILE, error);
+	auto sticker_file = config_get_path(ConfigOption::STICKER_FILE, error);
 	if (sticker_file.IsNull()) {
 		if (error.IsDefined())
 			FatalError(error);
@@ -263,7 +270,7 @@ glue_sticker_init(void)
 static bool
 glue_state_file_init(Error &error)
 {
-	auto path_fs = config_get_path(CONF_STATE_FILE, error);
+	auto path_fs = config_get_path(ConfigOption::STATE_FILE, error);
 	if (path_fs.IsNull()) {
 		if (error.IsDefined())
 			return false;
@@ -279,8 +286,9 @@ glue_state_file_init(Error &error)
 #endif
 	}
 
-	unsigned interval = config_get_unsigned(CONF_STATE_FILE_INTERVAL,
-						StateFile::DEFAULT_INTERVAL);
+	const unsigned interval =
+		config_get_unsigned(ConfigOption::STATE_FILE_INTERVAL,
+				    StateFile::DEFAULT_INTERVAL);
 
 	state_file = new StateFile(std::move(path_fs), interval,
 				   *instance->partition,
@@ -317,7 +325,7 @@ initialize_decoder_and_player(void)
 	const struct config_param *param;
 
 	size_t buffer_size;
-	param = config_get_param(CONF_AUDIO_BUFFER_SIZE);
+	param = config_get_param(ConfigOption::AUDIO_BUFFER_SIZE);
 	if (param != nullptr) {
 		char *test;
 		long tmp = strtol(param->value.c_str(), &test, 10);
@@ -338,7 +346,7 @@ initialize_decoder_and_player(void)
 				 (unsigned long)buffer_size);
 
 	float perc;
-	param = config_get_param(CONF_BUFFER_BEFORE_PLAY);
+	param = config_get_param(ConfigOption::BUFFER_BEFORE_PLAY);
 	if (param != nullptr) {
 		char *test;
 		perc = strtod(param->value.c_str(), &test);
@@ -356,7 +364,7 @@ initialize_decoder_and_player(void)
 		buffered_before_play = buffered_chunks;
 
 	const unsigned max_length =
-		config_get_positive(CONF_MAX_PLAYLIST_LENGTH,
+		config_get_positive(ConfigOption::MAX_PLAYLIST_LENGTH,
 				    DEFAULT_PLAYLIST_MAX_LENGTH);
 
 	instance->partition = new Partition(*instance,
@@ -408,6 +416,8 @@ int main(int argc, char *argv[])
 
 #endif
 
+static int mpd_main_after_fork(struct options);
+
 #ifdef ANDROID
 static inline
 #endif
@@ -416,9 +426,11 @@ int mpd_main(int argc, char *argv[])
 	struct options options;
 	Error error;
 
-#ifndef ANDROID
+#ifdef ENABLE_DAEMON
 	daemonize_close_stdin();
+#endif
 
+#ifndef ANDROID
 #ifdef HAVE_LOCALE_H
 	/* initialize locale */
 	setlocale(LC_CTYPE,"");
@@ -426,11 +438,6 @@ int mpd_main(int argc, char *argv[])
 
 #ifdef HAVE_GLIB
 	g_set_application_name("Music Player Daemon");
-
-#if !GLIB_CHECK_VERSION(2,32,0)
-	/* enable GLib's thread safety code */
-	g_thread_init(nullptr);
-#endif
 #endif
 #endif
 
@@ -464,7 +471,9 @@ int mpd_main(int argc, char *argv[])
 		LogError(error);
 		return EXIT_FAILURE;
 	}
+#endif
 
+#ifdef ENABLE_DAEMON
 	if (!glue_daemonize_init(&options, error)) {
 		LogError(error);
 		return EXIT_FAILURE;
@@ -495,7 +504,8 @@ int mpd_main(int argc, char *argv[])
 	}
 #endif
 
-	const unsigned max_clients = config_get_positive(CONF_MAX_CONN, 10);
+	const unsigned max_clients =
+		config_get_positive(ConfigOption::MAX_CONN, 10);
 	instance->client_list = new ClientList(max_clients);
 
 	initialize_decoder_and_player();
@@ -506,10 +516,31 @@ int mpd_main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-#ifndef ANDROID
+#ifdef ENABLE_DAEMON
 	daemonize_set_user();
 	daemonize_begin(options.daemon);
 #endif
+
+#ifdef __BLOCKS__
+	/* Runs the OS X native event loop in the main thread, and runs
+	   the rest of mpd_main on a new thread. This lets CoreAudio receive
+	   route change notifications (e.g. plugging or unplugging headphones).
+	   All hardware output on OS X ultimately uses CoreAudio internally.
+	   This must be run after forking; if dispatch is called before forking,
+	   the child process will have a broken internal dispatch state. */
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		exit(mpd_main_after_fork(options));
+	});
+	dispatch_main();
+	return EXIT_FAILURE; // unreachable, because dispatch_main never returns
+#else
+	return mpd_main_after_fork(options);
+#endif
+}
+
+static int mpd_main_after_fork(struct options options)
+{
+	Error error;
 
 	GlobalEvents::Initialize(*instance->event_loop);
 	GlobalEvents::Register(GlobalEvents::IDLE, idle_event_emitted);
@@ -517,7 +548,10 @@ int mpd_main(int argc, char *argv[])
 	GlobalEvents::Register(GlobalEvents::SHUTDOWN, shutdown_event_emitted);
 #endif
 
-	ConfigureFS();
+	if (!ConfigureFS(error)) {
+		LogError(error);
+		return EXIT_FAILURE;
+	}
 
 	if (!glue_mapper_init(error)) {
 		LogError(error);
@@ -558,9 +592,11 @@ int mpd_main(int argc, char *argv[])
 
 	playlist_list_global_init();
 
-#ifndef ANDROID
+#ifdef ENABLE_DAEMON
 	daemonize_commit();
+#endif
 
+#ifndef ANDROID
 	setup_log_output(options.log_stderr);
 
 	SignalHandlersInit(*instance->event_loop);
@@ -596,14 +632,14 @@ int mpd_main(int argc, char *argv[])
 	instance->partition->outputs.SetReplayGainMode(replay_gain_get_real_mode(instance->partition->playlist.queue.random));
 
 #ifdef ENABLE_DATABASE
-	if (config_get_bool(CONF_AUTO_UPDATE, false)) {
+	if (config_get_bool(ConfigOption::AUTO_UPDATE, false)) {
 #ifdef ENABLE_INOTIFY
 		if (instance->storage != nullptr &&
 		    instance->update != nullptr)
 			mpd_inotify_init(*instance->event_loop,
 					 *instance->storage,
 					 *instance->update,
-					 config_get_unsigned(CONF_AUTO_UPDATE_DEPTH,
+					 config_get_unsigned(ConfigOption::AUTO_UPDATE_DEPTH,
 							     INT_MAX));
 #else
 		FormatWarning(main_domain,
@@ -683,6 +719,8 @@ int mpd_main(int argc, char *argv[])
 	mapper_finish();
 #endif
 
+	DeinitFS();
+
 	delete instance->partition;
 	command_finish();
 	decoder_plugin_deinit_all();
@@ -697,9 +735,11 @@ int mpd_main(int argc, char *argv[])
 	delete instance->event_loop;
 	delete instance;
 	instance = nullptr;
-#ifndef ANDROID
+
+#ifdef ENABLE_DAEMON
 	daemonize_finish();
 #endif
+
 #ifdef WIN32
 	WSACleanup();
 #endif

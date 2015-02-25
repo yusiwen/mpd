@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -42,7 +42,7 @@
 #include <queue>
 #include <list>
 
-struct config_param;
+struct ConfigBlock;
 class Error;
 class EventLoop;
 class ServerSocket;
@@ -153,7 +153,7 @@ public:
 	HttpdOutput(EventLoop &_loop);
 	~HttpdOutput();
 
-#if defined(__clang__) || GCC_CHECK_VERSION(4,7)
+#if CLANG_OR_GCC_VERSION(4,7)
 	constexpr
 #endif
 	static HttpdOutput *Cast(AudioOutput *ao) {
@@ -162,16 +162,16 @@ public:
 
 	using DeferredMonitor::GetEventLoop;
 
-	bool Init(const config_param &param, Error &error);
+	bool Init(const ConfigBlock &block, Error &error);
 
-	bool Configure(const config_param &param, Error &error);
+	bool Configure(const ConfigBlock &block, Error &error);
 
-	AudioOutput *InitAndConfigure(const config_param &param,
+	AudioOutput *InitAndConfigure(const ConfigBlock &block,
 				       Error &error) {
-		if (!Init(param, error))
+		if (!Init(block, error))
 			return nullptr;
 
-		if (!Configure(param, error))
+		if (!Configure(block, error))
 			return nullptr;
 
 		return &base;
@@ -250,7 +250,7 @@ public:
 
 	bool EncodeAndPlay(const void *chunk, size_t size, Error &error);
 
-	void SendTag(const Tag *tag);
+	void SendTag(const Tag &tag);
 
 	size_t Play(const void *chunk, size_t size, Error &error);
 
@@ -259,8 +259,7 @@ public:
 private:
 	virtual void RunDeferred() override;
 
-	virtual void OnAccept(int fd, const sockaddr &address,
-			      size_t address_length, int uid) override;
+	void OnAccept(int fd, SocketAddress address, int uid) override;
 };
 
 extern const class Domain httpd_output_domain;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include "Traits.hxx"
 #include "Path.hxx"
 
+#include <cstddef>
 #include <utility>
 #include <string>
 
@@ -44,13 +45,7 @@ class AllocatedPath {
 
 	string value;
 
-	struct Donate {};
-
-	/**
-	 * Donate the allocated pointer to a new #AllocatedPath object.
-	 */
-	AllocatedPath(Donate, pointer _value);
-
+	AllocatedPath(std::nullptr_t):value() {}
 	AllocatedPath(const_pointer _value):value(_value) {}
 
 	AllocatedPath(string &&_value):value(std::move(_value)) {}
@@ -82,7 +77,7 @@ public:
 	 */
 	gcc_const
 	static AllocatedPath Null() {
-		return AllocatedPath("");
+		return AllocatedPath(nullptr);
 	}
 
 	gcc_pure
@@ -169,11 +164,21 @@ public:
 		return *this;
 	}
 
+	gcc_pure
+	bool operator==(const AllocatedPath &other) const {
+		return value == other.value;
+	}
+
+	gcc_pure
+	bool operator!=(const AllocatedPath &other) const {
+		return value != other.value;
+	}
+
 	/**
 	 * Allows the caller to "steal" the internal value by
 	 * providing a rvalue reference to the std::string attribute.
 	 */
-	std::string &&Steal() {
+	string &&Steal() {
 		return std::move(value);
 	}
 

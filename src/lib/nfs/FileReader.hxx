@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,6 +24,7 @@
 #include "Lease.hxx"
 #include "Callback.hxx"
 #include "event/DeferredMonitor.hxx"
+#include "Compiler.h"
 
 #include <string>
 
@@ -75,6 +76,12 @@ protected:
 	virtual void OnNfsFileError(Error &&error) = 0;
 
 private:
+	/**
+	 * Cancel the current operation, if any.  The NfsLease must be
+	 * unregistered already.
+	 */
+	void CancelOrClose();
+
 	void OpenCallback(nfsfh *_fh);
 	void StatCallback(const struct stat *st);
 

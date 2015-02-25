@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,38 +23,39 @@
 #include "CommandResult.hxx"
 
 class Client;
+template<typename T> struct ConstBuffer;
 
 CommandResult
 handle_listfiles_db(Client &client, const char *uri);
 
 CommandResult
-handle_lsinfo2(Client &client, unsigned argc, char *argv[]);
+handle_lsinfo2(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_find(Client &client, unsigned argc, char *argv[]);
+handle_find(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_findadd(Client &client, unsigned argc, char *argv[]);
+handle_findadd(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_search(Client &client, unsigned argc, char *argv[]);
+handle_search(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_searchadd(Client &client, unsigned argc, char *argv[]);
+handle_searchadd(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_searchaddpl(Client &client, unsigned argc, char *argv[]);
+handle_searchaddpl(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_count(Client &client, unsigned argc, char *argv[]);
+handle_count(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_listall(Client &client, unsigned argc, char *argv[]);
+handle_listall(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_list(Client &client, unsigned argc, char *argv[]);
+handle_list(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_listallinfo(Client &client, unsigned argc, char *argv[]);
+handle_listallinfo(Client &client, ConstBuffer<const char *> args);
 
 #endif

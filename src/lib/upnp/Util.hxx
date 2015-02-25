@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,9 +24,6 @@
 
 #include <string>
 #include <list>
-
-std::string
-caturl(const std::string& s1, const std::string& s2);
 
 void
 trimstring(std::string &s, const char *ws = " \t\n");

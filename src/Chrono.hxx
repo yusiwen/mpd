@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@
 #include <utility>
 #include <cstdint>
 
-#if defined(__GNUC__) && !GCC_CHECK_VERSION(4,7) && !defined(__clang__)
+#if GCC_OLDER_THAN(4,7)
 /* std::chrono::duration operators are "constexpr" since gcc 4.7 */
 #define chrono_constexpr gcc_pure
 #else

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,7 @@
 
 #include <cassert>
 
-struct config_param;
+struct ConfigBlock;
 struct Directory;
 struct DatabasePlugin;
 class EventLoop;
@@ -39,7 +39,7 @@ class SimpleDatabase : public Database {
 	AllocatedPath path;
 	std::string path_utf8;
 
-#ifdef HAVE_ZLIB
+#ifdef ENABLE_ZLIB
 	bool compress;
 #endif
 
@@ -73,7 +73,7 @@ class SimpleDatabase : public Database {
 
 public:
 	static Database *Create(EventLoop &loop, DatabaseListener &listener,
-				const config_param &param,
+				const ConfigBlock &block,
 				Error &error);
 
 	gcc_pure
@@ -110,9 +110,9 @@ public:
 	virtual bool Open(Error &error) override;
 	virtual void Close() override;
 
-	virtual const LightSong *GetSong(const char *uri_utf8,
-					 Error &error) const override;
-	virtual void ReturnSong(const LightSong *song) const;
+	const LightSong *GetSong(const char *uri_utf8,
+				 Error &error) const override;
+	void ReturnSong(const LightSong *song) const override;
 
 	virtual bool Visit(const DatabaseSelection &selection,
 			   VisitDirectory visit_directory,
@@ -134,7 +134,7 @@ public:
 	}
 
 private:
-	bool Configure(const config_param &param, Error &error);
+	bool Configure(const ConfigBlock &block, Error &error);
 
 	gcc_pure
 	bool Check(Error &error) const;

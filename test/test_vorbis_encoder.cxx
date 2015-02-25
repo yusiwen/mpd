@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,28 +20,20 @@
 #include "config.h"
 #include "encoder/EncoderList.hxx"
 #include "encoder/EncoderPlugin.hxx"
+#include "encoder/EncoderInterface.hxx"
+#include "encoder/ToOutputStream.hxx"
 #include "AudioFormat.hxx"
-#include "config/ConfigData.hxx"
-#include "stdbin.h"
+#include "config/Block.hxx"
+#include "fs/io/StdioOutputStream.hxx"
 #include "tag/Tag.hxx"
 #include "tag/TagBuilder.hxx"
 #include "util/Error.hxx"
+#include "Log.hxx"
 
 #include <stddef.h>
 #include <unistd.h>
 
 static uint8_t zero[256];
-
-static void
-encoder_to_stdout(Encoder &encoder)
-{
-	size_t length;
-	static char buffer[32768];
-
-	while ((length = encoder_read(&encoder, buffer, sizeof(buffer))) > 0) {
-		gcc_unused ssize_t ignored = write(1, buffer, length);
-	}
-}
 
 int
 main(gcc_unused int argc, gcc_unused char **argv)
@@ -53,33 +45,45 @@ main(gcc_unused int argc, gcc_unused char **argv)
 	const auto plugin = encoder_plugin_get("vorbis");
 	assert(plugin != NULL);
 
-	config_param param;
-	param.AddBlockParam("quality", "5.0", -1);
+	ConfigBlock block;
+	block.AddBlockParam("quality", "5.0", -1);
 
-	const auto encoder = encoder_init(*plugin, param, IgnoreError());
+	const auto encoder = encoder_init(*plugin, block, IgnoreError());
 	assert(encoder != NULL);
 
 	/* open the encoder */
 
 	AudioFormat audio_format(44100, SampleFormat::S16, 2);
-	success = encoder_open(encoder, audio_format, IgnoreError());
+	success = encoder->Open(audio_format, IgnoreError());
 	assert(success);
 
-	encoder_to_stdout(*encoder);
+	StdioOutputStream os(stdout);
+
+	Error error;
+	if (!EncoderToOutputStream(os, *encoder, error)) {
+		LogError(error);
+		return EXIT_FAILURE;
+	}
 
 	/* write a block of data */
 
 	success = encoder_write(encoder, zero, sizeof(zero), IgnoreError());
 	assert(success);
 
-	encoder_to_stdout(*encoder);
+	if (!EncoderToOutputStream(os, *encoder, error)) {
+		LogError(error);
+		return EXIT_FAILURE;
+	}
 
 	/* write a tag */
 
 	success = encoder_pre_tag(encoder, IgnoreError());
 	assert(success);
 
-	encoder_to_stdout(*encoder);
+	if (!EncoderToOutputStream(os, *encoder, error)) {
+		LogError(error);
+		return EXIT_FAILURE;
+	}
 
 	Tag tag;
 
@@ -90,10 +94,13 @@ main(gcc_unused int argc, gcc_unused char **argv)
 		tag_builder.Commit(tag);
 	}
 
-	success = encoder_tag(encoder, &tag, IgnoreError());
+	success = encoder_tag(encoder, tag, IgnoreError());
 	assert(success);
 
-	encoder_to_stdout(*encoder);
+	if (!EncoderToOutputStream(os, *encoder, error)) {
+		LogError(error);
+		return EXIT_FAILURE;
+	}
 
 	/* write another block of data */
 
@@ -105,8 +112,11 @@ main(gcc_unused int argc, gcc_unused char **argv)
 	success = encoder_end(encoder, IgnoreError());
 	assert(success);
 
-	encoder_to_stdout(*encoder);
+	if (!EncoderToOutputStream(os, *encoder, error)) {
+		LogError(error);
+		return EXIT_FAILURE;
+	}
 
-	encoder_close(encoder);
-	encoder_finish(encoder);
+	encoder->Close();
+	encoder->Dispose();
 }

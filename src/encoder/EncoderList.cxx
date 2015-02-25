@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -33,16 +33,16 @@
 
 const EncoderPlugin *const encoder_plugins[] = {
 	&null_encoder_plugin,
-#ifdef ENABLE_VORBIS_ENCODER
+#ifdef ENABLE_VORBISENC
 	&vorbis_encoder_plugin,
 #endif
-#ifdef HAVE_OPUS
+#ifdef ENABLE_OPUS
 	&opus_encoder_plugin,
 #endif
-#ifdef ENABLE_LAME_ENCODER
+#ifdef ENABLE_LAME
 	&lame_encoder_plugin,
 #endif
-#ifdef ENABLE_TWOLAME_ENCODER
+#ifdef ENABLE_TWOLAME
 	&twolame_encoder_plugin,
 #endif
 #ifdef ENABLE_WAVE_ENCODER
@@ -51,7 +51,7 @@ const EncoderPlugin *const encoder_plugins[] = {
 #ifdef ENABLE_FLAC_ENCODER
 	&flac_encoder_plugin,
 #endif
-#ifdef ENABLE_SHINE_ENCODER
+#ifdef ENABLE_SHINE
 	&shine_encoder_plugin,
 #endif
 	nullptr

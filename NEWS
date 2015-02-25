@@ -1,6 +1,145 @@
-ver 0.19 (not yet released)
+ver 0.20 (not yet released)
 * protocol
-  - new commands "addtagid", "cleartagid", "listfiles", "rangeid"
+  - "commands" returns playlist commands only if playlist_directory configured
+  - "search"/"find" have a "window" parameter
+  - report song duration with milliseconds precision
+  - "sticker find" can match sticker values
+  - drop the "file:///" prefix for absolute file paths
+* tags
+  - ape, ogg: drop support for non-standard tag "album artist"
+    affected filetypes: vorbis, flac, opus & all files with ape2 tags
+    (most importantly some mp3s)
+* decoder
+  - ffmpeg: support ReplayGain and MixRamp
+  - ffmpeg: support stream tags
+* output
+  - jack: reduce CPU usage
+  - pulse: set channel map to WAVE-EX
+  - recorder: record tags
+  - recorder: allow dynamic file names
+* mixer
+  - null: new plugin
+* resampler
+  - new block "resampler" in configuration file
+    replacing the old "samplerate_converter" setting
+  - soxr: allow multi-threaded resampling
+* reset song priority on playback
+* write database and state file atomically
+* remove dependency on GLib
+* database
+  - proxy: add TCP keepalive option
+
+ver 0.19.9 (2015/02/06)
+* decoder
+  - dsdiff, dsf: raise ID3 tag limit to 1 MB
+* playlist: fix loading duplicate tag types from state file
+* despotify: remove defunct plugin
+* fix clock integer overflow on OS X
+* fix gcc 5.0 warnings
+* fix build failure with uClibc
+* fix build failure on non-POSIX operating systems
+* fix dependency issue on parallel Android build
+* fix database/state file saving on Windows
+
+ver 0.19.8 (2015/01/14)
+* input
+  - curl: fix bug after rewinding from end-of-file
+  - mms: reduce delay at the beginning of playback
+* decoder
+  - dsdiff, dsf: allow ID3 tags larger than 4 kB
+  - ffmpeg: support interleaved floating point
+* fix clang 3.6 warnings
+* fix build failure on NetBSD
+
+ver 0.19.7 (2014/12/17)
+* input
+  - nfs: fix crash while canceling a failing file open operation
+  - nfs: fix memory leak on connection failure
+  - nfs: fix reconnect after mount failure
+  - nfs: implement mount timeout (60 seconds)
+* storage
+  - nfs: implement I/O timeout (60 seconds)
+* playlist
+  - embcue: fix filename suffix detection
+  - don't skip non-existent songs in "listplaylist"
+* decoder
+  - ffmpeg: fix time stamp underflow
+* fix memory allocator bug on Windows
+
+ver 0.19.6 (2014/12/08)
+* decoder
+  - ffmpeg: support FFmpeg 2.5
+* fix build failure with musl
+* android
+  - update libFLAC to 1.3.1
+  - update FFmpeg to 2.5
+
+ver 0.19.5 (2014/11/26)
+* input
+  - nfs: fix crash on connection failure
+* archive
+  - zzip: fix crash after seeking
+* decoder
+  - dsdiff, dsf, opus: fix deadlock while seeking
+  - mp4v2: remove because of incompatible license
+
+ver 0.19.4 (2014/11/18)
+* protocol
+  - workaround for buggy clients that send "add /"
+* decoder
+  - ffmpeg: support opus
+  - opus: add MIME types audio/ogg and application/ogg
+* fix crash on failed filename charset conversion
+* fix local socket detection from uid=0 (root)
+
+ver 0.19.3 (2014/11/11)
+* protocol
+  - fix "(null)" result string to "list" when AlbumArtist is disabled
+* database
+  - upnp: fix breakage due to malformed URIs
+* input
+  - curl: another fix for redirected streams
+* decoder
+  - audiofile: fix crash while playing streams
+  - audiofile: fix bit rate calculation
+  - ffmpeg: support opus
+  - opus: fix bogus duration on streams
+  - opus: support chained streams
+  - opus: improved error logging
+* fix distorted audio with soxr resampler
+* fix build failure on Mac OS X with non-Apple compilers
+
+ver 0.19.2 (2014/11/02)
+* input
+  - curl: fix redirected streams
+* playlist
+  - don't allow empty playlist name
+  - m3u: don't ignore unterminated last line
+  - m3u: recognize the file suffix ".m3u8"
+* decoder
+  - ignore URI query string for plugin detection
+  - faad: remove workaround for ancient libfaad2 ABI bug
+  - ffmpeg: recognize MIME type audio/aacp
+  - mad: fix negative replay gain values
+* output
+  - fix memory leak after filter initialization error
+  - fall back to PCM if given DSD sample rate is not supported
+* fix assertion failure on unsupported PCM conversion
+* auto-disable plugins that require GLib when --disable-glib is used
+
+ver 0.19.1 (2014/10/19)
+* input
+  - mms: fix deadlock bug
+* playlist
+  - extm3u: fix Extended M3U detection
+  - m3u, extm3u, cue: fix truncated lines
+* fix build failure on Mac OS X
+* add missing file systemd/mpd.socket to tarball
+
+ver 0.19 (2014/10/10)
+* protocol
+  - new commands "addtagid", "cleartagid", "listfiles", "listmounts",
+    "listneighbors", "mount", "rangeid", "unmount"
   - "lsinfo" and "readcomments" allowed for remote files
   - "listneighbors" lists file servers on the local network
   - "playlistadd" supports file:///
@@ -59,6 +198,7 @@ ver 0.19 (not yet released)
 * output
   - alsa: support native DSD playback
   - alsa: rename "DSD over USB" to "DoP"
+  - osx: fix hang after (un)plugging headphones
 * threads:
   - the update thread runs at "idle" priority
   - the output thread runs at "real-time" priority
@@ -68,10 +208,49 @@ ver 0.19 (not yet released)
   - allow playlist directory without music directory
   - use XDG to auto-detect "music_directory" and "db_file"
 * add tags "AlbumSort", "MUSICBRAINZ_RELEASETRACKID"
+* disable global Latin-1 fallback for tag values
 * new resampler option using libsoxr
 * ARM NEON optimizations
 * install systemd unit for socket activation
 * Android port
+
+ver 0.18.23 (2015/02/06)
+* despotify: remove defunct plugin
+* fix clock integer overflow on OS X
+* fix gcc 5.0 warnings
+
+ver 0.18.22 (2015/01/14)
+* fix clang 3.6 warnings
+
+ver 0.18.21 (2014/12/17)
+* playlist
+  - embcue: fix filename suffix detection
+* decoder
+  - ffmpeg: fix time stamp underflow
+
+ver 0.18.20 (2014/12/08)
+* decoder
+  - ffmpeg: support FFmpeg 2.5
+* fix build failure with musl
+
+ver 0.18.19 (2014/11/26)
+* archive
+  - zzip: fix crash after seeking
+
+ver 0.18.18 (2014/11/18)
+* decoder
+  - ffmpeg: support opus
+* fix crash on failed filename charset conversion
+* fix local socket detection from uid=0 (root)
+
+ver 0.18.17 (2014/11/02)
+* playlist
+  - don't allow empty playlist name
+  - m3u: recognize the file suffix ".m3u8"
+* decoder
+  - ignore URI query string for plugin detection
+  - faad: remove workaround for ancient libfaad2 ABI bug
+  - ffmpeg: recognize MIME type audio/aacp
 
 ver 0.18.16 (2014/09/26)
 * fix DSD breakage due to typo in configure.ac

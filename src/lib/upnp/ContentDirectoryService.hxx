@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -62,7 +62,8 @@ public:
 	/**
 	 * Construct by copying data from device and service objects.
 	 *
-	 * The discovery service does this: use getDirServices()
+	 * The discovery service does this: use
+	 * UPnPDeviceDirectory::GetDirectories()
 	 */
 	ContentDirectoryService(const UPnPDevice &device,
 				const UPnPService &service);

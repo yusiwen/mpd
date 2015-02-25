@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -47,18 +47,18 @@ struct LameEncoder final {
 
 	LameEncoder():encoder(lame_encoder_plugin) {}
 
-	bool Configure(const config_param &param, Error &error);
+	bool Configure(const ConfigBlock &block, Error &error);
 };
 
 static constexpr Domain lame_encoder_domain("lame_encoder");
 
 bool
-LameEncoder::Configure(const config_param &param, Error &error)
+LameEncoder::Configure(const ConfigBlock &block, Error &error)
 {
 	const char *value;
 	char *endptr;
 
-	value = param.GetBlockValue("quality");
+	value = block.GetBlockValue("quality");
 	if (value != nullptr) {
 		/* a quality was configured (VBR) */
 
@@ -72,7 +72,7 @@ LameEncoder::Configure(const config_param &param, Error &error)
 			return false;
 		}
 
-		if (param.GetBlockValue("bitrate") != nullptr) {
+		if (block.GetBlockValue("bitrate") != nullptr) {
 			error.Set(config_domain,
 				  "quality and bitrate are both defined");
 			return false;
@@ -80,7 +80,7 @@ LameEncoder::Configure(const config_param &param, Error &error)
 	} else {
 		/* a bit rate was configured */
 
-		value = param.GetBlockValue("bitrate");
+		value = block.GetBlockValue("bitrate");
 		if (value == nullptr) {
 			error.Set(config_domain,
 				  "neither bitrate nor quality defined");
@@ -101,12 +101,12 @@ LameEncoder::Configure(const config_param &param, Error &error)
 }
 
 static Encoder *
-lame_encoder_init(const config_param &param, Error &error)
+lame_encoder_init(const ConfigBlock &block, Error &error)
 {
 	LameEncoder *encoder = new LameEncoder();
 
-	/* load configuration from "param" */
-	if (!encoder->Configure(param, error)) {
+	/* load configuration from "block" */
+	if (!encoder->Configure(block, error)) {
 		/* configuration has failed, roll back and return error */
 		delete encoder;
 		return nullptr;

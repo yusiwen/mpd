@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -63,5 +63,24 @@ xstrdup(const char *s);
 gcc_malloc gcc_nonnull_all
 char *
 xstrndup(const char *s, size_t n);
+
+/**
+ * Concatenate two strings, returning a new allocation.  Use free() to
+ * free it.
+ *
+ * This function never fails; in out-of-memory situations, it aborts
+ * the process.
+ */
+gcc_malloc gcc_nonnull_all
+char *
+xstrcatdup(const char *a, const char *b);
+
+gcc_malloc gcc_nonnull_all
+char *
+xstrcatdup(const char *a, const char *b, const char *c);
+
+gcc_malloc gcc_nonnull_all
+char *
+xstrcatdup(const char *a, const char *b, const char *c, const char *d);
 
 #endif

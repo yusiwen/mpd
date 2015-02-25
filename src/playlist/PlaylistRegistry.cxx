@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,7 +23,6 @@
 #include "plugins/ExtM3uPlaylistPlugin.hxx"
 #include "plugins/M3uPlaylistPlugin.hxx"
 #include "plugins/XspfPlaylistPlugin.hxx"
-#include "plugins/DespotifyPlaylistPlugin.hxx"
 #include "plugins/SoundCloudPlaylistPlugin.hxx"
 #include "plugins/PlsPlaylistPlugin.hxx"
 #include "plugins/AsxPlaylistPlugin.hxx"
@@ -36,7 +35,7 @@
 #include "util/Error.hxx"
 #include "util/Macros.hxx"
 #include "config/ConfigGlobal.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Block.hxx"
 #include "Log.hxx"
 
 #include <assert.h>
@@ -45,23 +44,19 @@
 const struct playlist_plugin *const playlist_plugins[] = {
 	&extm3u_playlist_plugin,
 	&m3u_playlist_plugin,
-#ifdef HAVE_GLIB
-	// TODO: enable without GLib
 	&pls_playlist_plugin,
-#endif
-#ifdef HAVE_EXPAT
+#ifdef ENABLE_EXPAT
 	&xspf_playlist_plugin,
 	&asx_playlist_plugin,
 	&rss_playlist_plugin,
 #endif
-#ifdef ENABLE_DESPOTIFY
-	&despotify_playlist_plugin,
-#endif
 #ifdef ENABLE_SOUNDCLOUD
 	&soundcloud_playlist_plugin,
 #endif
+#ifdef ENABLE_CUE
 	&cue_playlist_plugin,
 	&embcue_playlist_plugin,
+#endif
 	nullptr
 };
 
@@ -78,13 +73,13 @@ static bool playlist_plugins_enabled[n_playlist_plugins];
 void
 playlist_list_global_init(void)
 {
-	const config_param empty;
+	const ConfigBlock empty;
 
 	for (unsigned i = 0; playlist_plugins[i] != nullptr; ++i) {
 		const struct playlist_plugin *plugin = playlist_plugins[i];
-		const struct config_param *param =
-			config_find_block(CONF_PLAYLIST_PLUGIN, "name",
-					  plugin->name);
+		const auto *param =
+			config_find_block(ConfigBlockOption::PLAYLIST_PLUGIN,
+					  "name", plugin->name);
 		if (param == nullptr)
 			param = &empty;
 		else if (!param->GetBlockValue("enabled", true))
@@ -139,12 +134,12 @@ static SongEnumerator *
 playlist_list_open_uri_suffix(const char *uri, Mutex &mutex, Cond &cond,
 			      const bool *tried)
 {
-	const char *suffix;
 	SongEnumerator *playlist = nullptr;
 
 	assert(uri != nullptr);
 
-	suffix = uri_get_suffix(uri);
+	UriSuffixBuffer suffix_buffer;
+	const char *const suffix = uri_get_suffix(uri, suffix_buffer);
 	if (suffix == nullptr)
 		return nullptr;
 
@@ -257,7 +252,10 @@ playlist_list_open_stream(InputStream &is, const char *uri)
 			return playlist;
 	}
 
-	const char *suffix = uri != nullptr ? uri_get_suffix(uri) : nullptr;
+	UriSuffixBuffer suffix_buffer;
+	const char *suffix = uri != nullptr
+		? uri_get_suffix(uri, suffix_buffer)
+		: nullptr;
 	if (suffix != nullptr) {
 		auto playlist = playlist_list_open_stream_suffix(is, suffix);
 		if (playlist != nullptr)

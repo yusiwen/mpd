@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -66,14 +66,14 @@ public:
  */
 
 static InputPlugin::InitResult
-input_smbclient_init(gcc_unused const config_param &param, Error &error)
+input_smbclient_init(gcc_unused const ConfigBlock &block, Error &error)
 {
 	if (!SmbclientInit(error))
 		return InputPlugin::InitResult::UNAVAILABLE;
 
 	// TODO: create one global SMBCCTX here?
 
-	// TODO: evaluate config_param, call smbc_setOption*()
+	// TODO: evaluate ConfigBlock, call smbc_setOption*()
 
 	return InputPlugin::InitResult::SUCCESS;
 }

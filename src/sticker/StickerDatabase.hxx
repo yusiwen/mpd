@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -42,13 +42,14 @@
 #ifndef MPD_STICKER_DATABASE_HXX
 #define MPD_STICKER_DATABASE_HXX
 
+#include "Match.hxx"
 #include "Compiler.h"
 
 #include <string>
 
 class Error;
 class Path;
-struct sticker;
+struct Sticker;
 
 /**
  * Opens the sticker database.
@@ -62,21 +63,22 @@ sticker_global_init(Path path, Error &error);
  * Close the sticker database.
  */
 void
-sticker_global_finish(void);
+sticker_global_finish();
 
 /**
  * Returns true if the sticker database is configured and available.
  */
 gcc_const
 bool
-sticker_enabled(void);
+sticker_enabled();
 
 /**
  * Returns one value from an object's sticker record.  Returns an
  * empty string if the value doesn't exist.
  */
 std::string
-sticker_load_value(const char *type, const char *uri, const char *name);
+sticker_load_value(const char *type, const char *uri, const char *name,
+		   Error &error);
 
 /**
  * Sets a sticker value in the specified object.  Overwrites existing
@@ -84,21 +86,24 @@ sticker_load_value(const char *type, const char *uri, const char *name);
  */
 bool
 sticker_store_value(const char *type, const char *uri,
-		    const char *name, const char *value);
+		    const char *name, const char *value,
+		    Error &error);
 
 /**
  * Deletes a sticker from the database.  All sticker values of the
  * specified object are deleted.
  */
 bool
-sticker_delete(const char *type, const char *uri);
+sticker_delete(const char *type, const char *uri,
+	       Error &error);
 
 /**
  * Deletes a sticker value.  Fails if no sticker with this name
  * exists.
  */
 bool
-sticker_delete_value(const char *type, const char *uri, const char *name);
+sticker_delete_value(const char *type, const char *uri, const char *name,
+		     Error &error);
 
 /**
  * Frees resources held by the sticker object.
@@ -106,7 +111,7 @@ sticker_delete_value(const char *type, const char *uri, const char *name);
  * @param sticker the sticker object to be freed
  */
 void
-sticker_free(sticker *sticker);
+sticker_free(Sticker *sticker);
 
 /**
  * Determines a single value in a sticker.
@@ -117,7 +122,7 @@ sticker_free(sticker *sticker);
  */
 gcc_pure
 const char *
-sticker_get_value(const sticker &sticker, const char *name);
+sticker_get_value(const Sticker &sticker, const char *name);
 
 /**
  * Iterates over all sticker items in a sticker.
@@ -127,7 +132,7 @@ sticker_get_value(const sticker &sticker, const char *name);
  * @param user_data an opaque pointer for the callback function
  */
 void
-sticker_foreach(const sticker &sticker,
+sticker_foreach(const Sticker &sticker,
 		void (*func)(const char *name, const char *value,
 			     void *user_data),
 		void *user_data);
@@ -139,8 +144,9 @@ sticker_foreach(const sticker &sticker,
  * @param uri the URI of the resource, e.g. the song path
  * @return a sticker object, or nullptr on error or if there is no sticker
  */
-sticker *
-sticker_load(const char *type, const char *uri);
+Sticker *
+sticker_load(const char *type, const char *uri,
+	     Error &error);
 
 /**
  * Finds stickers with the specified name below the specified URI.
@@ -149,13 +155,17 @@ sticker_load(const char *type, const char *uri);
  * @param base_uri the URI prefix of the resources, or nullptr if all
  * resources should be searched
  * @param name the name of the sticker
+ * @param op the comparison operator
+ * @param value the operand
  * @return true on success (even if no sticker was found), false on
  * failure
  */
 bool
 sticker_find(const char *type, const char *base_uri, const char *name,
+	     StickerOperator op, const char *value,
 	     void (*func)(const char *uri, const char *value,
 			  void *user_data),
-	     void *user_data);
+	     void *user_data,
+	     Error &error);
 
 #endif

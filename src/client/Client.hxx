@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -36,7 +36,7 @@
 #include <stddef.h>
 #include <stdarg.h>
 
-struct sockaddr;
+class SocketAddress;
 class EventLoop;
 class Path;
 struct Partition;
@@ -127,7 +127,7 @@ public:
 	 * a local (UNIX domain) socket?
 	 */
 	bool IsLocal() const {
-		return uid > 0;
+		return uid >= 0;
 	}
 
 	unsigned GetPermission() const {
@@ -204,7 +204,7 @@ void client_manager_init(void);
 
 void
 client_new(EventLoop &loop, Partition &partition,
-	   int fd, const sockaddr *sa, size_t sa_length, int uid);
+	   int fd, SocketAddress address, int uid);
 
 /**
  * Write a C string to the client.

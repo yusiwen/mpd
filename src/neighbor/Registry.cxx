@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,7 @@ const NeighborPlugin *const neighbor_plugins[] = {
 #ifdef ENABLE_SMBCLIENT
 	&smbclient_neighbor_plugin,
 #endif
-#ifdef HAVE_LIBUPNP
+#ifdef ENABLE_UPNP
 	&upnp_neighbor_plugin,
 #endif
 	nullptr

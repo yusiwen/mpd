@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -46,7 +46,7 @@ StatsVisitTag(DatabaseStats &stats, StringSet &artists, StringSet &albums,
 	for (const auto &item : tag) {
 		switch (item.type) {
 		case TAG_ARTIST:
-#if defined(__clang__) || GCC_CHECK_VERSION(4,8)
+#if CLANG_OR_GCC_VERSION(4,8)
 			artists.emplace(item.value);
 #else
 			artists.insert(item.value);
@@ -54,7 +54,7 @@ StatsVisitTag(DatabaseStats &stats, StringSet &artists, StringSet &albums,
 			break;
 
 		case TAG_ALBUM:
-#if defined(__clang__) || GCC_CHECK_VERSION(4,8)
+#if CLANG_OR_GCC_VERSION(4,8)
 			albums.emplace(item.value);
 #else
 			albums.insert(item.value);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,10 +29,12 @@
 #include "input/InputStream.hxx"
 #include "tag/TagId3.hxx"
 #include "util/Error.hxx"
+#include "util/Alloc.hxx"
 
 #include <string.h>
+#include <stdlib.h>
 
-#ifdef HAVE_ID3TAG
+#ifdef ENABLE_ID3TAG
 #include <id3tag.h>
 #endif
 
@@ -46,14 +48,14 @@ DsdId::Equals(const char *s) const
 }
 
 /**
- * Skip the #input_stream to the specified offset.
+ * Skip the #InputStream to the specified offset.
  */
 bool
 dsdlib_skip_to(Decoder *decoder, InputStream &is,
 	       offset_type offset)
 {
 	if (is.IsSeekable())
-		return is.Seek(offset, IgnoreError());
+		return is.LockSeek(offset, IgnoreError());
 
 	if (is.GetOffset() > offset)
 		return false;
@@ -62,7 +64,7 @@ dsdlib_skip_to(Decoder *decoder, InputStream &is,
 }
 
 /**
- * Skip some bytes from the #input_stream.
+ * Skip some bytes from the #InputStream.
  */
 bool
 dsdlib_skip(Decoder *decoder, InputStream &is,
@@ -72,7 +74,7 @@ dsdlib_skip(Decoder *decoder, InputStream &is,
 		return true;
 
 	if (is.IsSeekable())
-		return is.Seek(is.GetOffset() + delta, IgnoreError());
+		return is.LockSeek(is.GetOffset() + delta, IgnoreError());
 
 	if (delta > 1024 * 1024)
 		/* don't skip more than one megabyte; it would be too
@@ -101,44 +103,46 @@ dsdlib_valid_freq(uint32_t samplefreq)
 	}
 }
 
-#ifdef HAVE_ID3TAG
+#ifdef ENABLE_ID3TAG
 void
 dsdlib_tag_id3(InputStream &is,
 	       const struct tag_handler *handler,
-	       void *handler_ctx, int64_t tagoffset)
+	       void *handler_ctx, offset_type tagoffset)
 {
-	assert(tagoffset >= 0);
-
 	if (tagoffset == 0 || !is.KnownSize())
+		return;
+
+	/* Prevent broken files causing problems */
+	const auto size = is.GetSize();
+	if (tagoffset >= size)
+		return;
+
+	const auto count64 = size - tagoffset;
+	if (count64 < 10 || count64 > 1024 * 1024)
 		return;
 
 	if (!dsdlib_skip_to(nullptr, is, tagoffset))
 		return;
 
-	/* Prevent broken files causing problems */
-	const auto size = is.GetSize();
-	const auto offset = is.GetOffset();
-	if (offset >= size)
+	const id3_length_t count = count64;
+
+	id3_byte_t *const id3_buf = new id3_byte_t[count];
+	if (id3_buf == nullptr)
 		return;
 
-	const id3_length_t count = size - offset;
-
-	/* Check and limit id3 tag size to prevent a stack overflow */
-	id3_byte_t dsdid3[4096];
-	if (count == 0 || count > sizeof(dsdid3))
+	if (!decoder_read_full(nullptr, is, id3_buf, count)) {
+		delete[] id3_buf;
 		return;
+	}
 
-	if (!decoder_read_full(nullptr, is, dsdid3, count))
-		return;
-
-	struct id3_tag *id3_tag = id3_tag_parse(dsdid3, count);
+	struct id3_tag *id3_tag = id3_tag_parse(id3_buf, count);
+	delete[] id3_buf;
 	if (id3_tag == nullptr)
 		return;
 
 	scan_id3_tag(id3_tag, handler, handler_ctx);
 
 	id3_tag_delete(id3_tag);
-
 	return;
 }
 #endif

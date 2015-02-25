@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,12 +25,13 @@
 
 struct Instance;
 class Client;
+template<typename T> struct ConstBuffer;
 
 gcc_pure
 bool
 neighbor_commands_available(const Instance &instance);
 
 CommandResult
-handle_listneighbors(Client &client, unsigned argc, char *argv[]);
+handle_listneighbors(Client &client, ConstBuffer<const char *> args);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -53,7 +53,7 @@ public:
 
 	Bzip2ArchiveFile(Path path, InputStream *_is)
 		:ArchiveFile(bz2_archive_plugin),
-		 name(PathTraitsFS::GetBase(path.c_str())),
+		 name(path.GetBase().c_str()),
 		 istream(_is) {
 		// remove .bz2 suffix
 		const size_t len = name.length();

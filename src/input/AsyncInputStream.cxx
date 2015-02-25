@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 
 #include "config.h"
 #include "AsyncInputStream.hxx"
+#include "Domain.hxx"
 #include "tag/Tag.hxx"
 #include "event/Call.hxx"
 #include "thread/Cond.hxx"
@@ -113,8 +114,10 @@ AsyncInputStream::Seek(offset_type new_offset, Error &error)
 		/* no-op */
 		return true;
 
-	if (!IsSeekable())
+	if (!IsSeekable()) {
+		error.Set(input_domain, "Not seekable");
 		return false;
+	}
 
 	/* check if we can fast-forward the buffer */
 
@@ -156,6 +159,11 @@ AsyncInputStream::SeekDone()
 {
 	assert(io_thread_inside());
 	assert(IsSeekPending());
+
+	/* we may have reached end-of-file previously, and the
+	   connection may have been closed already; however after
+	   seeking successfully, the connection must be alive again */
+	open = true;
 
 	seek_state = SeekState::NONE;
 	cond.broadcast();

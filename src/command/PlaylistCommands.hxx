@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,40 +21,46 @@
 #define MPD_PLAYLIST_COMMANDS_HXX
 
 #include "CommandResult.hxx"
+#include "Compiler.h"
 
 class Client;
+template<typename T> struct ConstBuffer;
+
+gcc_const
+bool
+playlist_commands_available();
 
 CommandResult
-handle_save(Client &client, unsigned argc, char *argv[]);
+handle_save(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_load(Client &client, unsigned argc, char *argv[]);
+handle_load(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_listplaylist(Client &client, unsigned argc, char *argv[]);
+handle_listplaylist(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_listplaylistinfo(Client &client, unsigned argc, char *argv[]);
+handle_listplaylistinfo(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_rm(Client &client, unsigned argc, char *argv[]);
+handle_rm(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_rename(Client &client, unsigned argc, char *argv[]);
+handle_rename(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_playlistdelete(Client &client, unsigned argc, char *argv[]);
+handle_playlistdelete(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_playlistmove(Client &client, unsigned argc, char *argv[]);
+handle_playlistmove(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_playlistclear(Client &client, unsigned argc, char *argv[]);
+handle_playlistclear(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_playlistadd(Client &client, unsigned argc, char *argv[]);
+handle_playlistadd(Client &client, ConstBuffer<const char *> args);
 
 CommandResult
-handle_listplaylists(Client &client, unsigned argc, char *argv[]);
+handle_listplaylists(Client &client, ConstBuffer<const char *> args);
 
 #endif

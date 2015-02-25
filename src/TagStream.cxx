@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -46,7 +46,8 @@ tag_stream_scan(InputStream &is, const tag_handler &handler, void *ctx)
 {
 	assert(is.IsReady());
 
-	const char *const suffix = uri_get_suffix(is.GetURI());
+	UriSuffixBuffer suffix_buffer;
+	const char *const suffix = uri_get_suffix(is.GetURI(), suffix_buffer);
 	const char *const mime = is.GetMimeType();
 
 	if (suffix == nullptr && mime == nullptr)

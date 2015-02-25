@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 #include "util/Error.hxx"
 #include "config/ConfigGlobal.hxx"
 #include "config/ConfigOption.hxx"
-#include "config/ConfigData.hxx"
+#include "config/Block.hxx"
 #include "Log.hxx"
 
 #include <assert.h>
@@ -33,7 +33,7 @@
 bool
 input_stream_global_init(Error &error)
 {
-	const config_param empty;
+	const ConfigBlock empty;
 
 	for (unsigned i = 0; input_plugins[i] != nullptr; ++i) {
 		const InputPlugin *plugin = input_plugins[i];
@@ -42,16 +42,17 @@ input_stream_global_init(Error &error)
 		assert(*plugin->name != 0);
 		assert(plugin->open != nullptr);
 
-		const struct config_param *param =
-			config_find_block(CONF_INPUT, "plugin", plugin->name);
-		if (param == nullptr) {
-			param = &empty;
-		} else if (!param->GetBlockValue("enabled", true))
+		const auto *block =
+			config_find_block(ConfigBlockOption::INPUT, "plugin",
+					  plugin->name);
+		if (block == nullptr) {
+			block = &empty;
+		} else if (!block->GetBlockValue("enabled", true))
 			/* the plugin is disabled in mpd.conf */
 			continue;
 
 		InputPlugin::InitResult result = plugin->init != nullptr
-			? plugin->init(*param, error)
+			? plugin->init(*block, error)
 			: InputPlugin::InitResult::SUCCESS;
 
 		switch (result) {
@@ -67,7 +68,7 @@ input_stream_global_init(Error &error)
 		case InputPlugin::InitResult::UNAVAILABLE:
 			if (error.IsDefined()) {
 				FormatError(error,
-					    "Input plugin '%s' is unavailable: ",
+					    "Input plugin '%s' is unavailable",
 					    plugin->name);
 				error.Clear();
 			}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,7 +22,7 @@
 #include "util/Macros.hxx"
 #include "plugins/FileInputPlugin.hxx"
 
-#ifdef HAVE_ALSA
+#ifdef ENABLE_ALSA
 #include "plugins/AlsaInputPlugin.hxx"
 #endif
 
@@ -34,7 +34,7 @@
 #include "plugins/CurlInputPlugin.hxx"
 #endif
 
-#ifdef HAVE_FFMPEG
+#ifdef ENABLE_FFMPEG
 #include "plugins/FfmpegInputPlugin.hxx"
 #endif
 
@@ -54,13 +54,9 @@
 #include "plugins/CdioParanoiaInputPlugin.hxx"
 #endif
 
-#ifdef ENABLE_DESPOTIFY
-#include "plugins/DespotifyInputPlugin.hxx"
-#endif
-
 const InputPlugin *const input_plugins[] = {
 	&input_plugin_file,
-#ifdef HAVE_ALSA
+#ifdef ENABLE_ALSA
 	&input_plugin_alsa,
 #endif
 #ifdef ENABLE_ARCHIVE
@@ -69,7 +65,7 @@ const InputPlugin *const input_plugins[] = {
 #ifdef ENABLE_CURL
 	&input_plugin_curl,
 #endif
-#ifdef HAVE_FFMPEG
+#ifdef ENABLE_FFMPEG
 	&input_plugin_ffmpeg,
 #endif
 #ifdef ENABLE_SMBCLIENT
@@ -83,9 +79,6 @@ const InputPlugin *const input_plugins[] = {
 #endif
 #ifdef ENABLE_CDIO_PARANOIA
 	&input_plugin_cdio_paranoia,
-#endif
-#ifdef ENABLE_DESPOTIFY
-	&input_plugin_despotify,
 #endif
 	nullptr
 };

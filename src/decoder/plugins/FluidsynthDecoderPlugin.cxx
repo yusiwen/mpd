@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -35,7 +35,7 @@ static unsigned sample_rate;
 static const char *soundfont_path;
 
 /**
- * Convert a fluidsynth log level to a GLib log level.
+ * Convert a fluidsynth log level to a MPD log level.
  */
 static LogLevel
 fluidsynth_level_to_mpd(enum fluid_log_level level)
@@ -61,7 +61,7 @@ fluidsynth_level_to_mpd(enum fluid_log_level level)
 }
 
 /**
- * The fluidsynth logging callback.  It forwards messages to the GLib
+ * The fluidsynth logging callback.  It forwards messages to the MPD
  * logging library.
  */
 static void
@@ -73,17 +73,17 @@ fluidsynth_mpd_log_function(int level, char *message, gcc_unused void *data)
 }
 
 static bool
-fluidsynth_init(const config_param &param)
+fluidsynth_init(const ConfigBlock &block)
 {
 	Error error;
 
-	sample_rate = param.GetBlockValue("sample_rate", 48000u);
+	sample_rate = block.GetBlockValue("sample_rate", 48000u);
 	if (!audio_check_sample_rate(sample_rate, error)) {
 		LogError(error);
 		return false;
 	}
 
-	soundfont_path = param.GetBlockValue("soundfont",
+	soundfont_path = block.GetBlockValue("soundfont",
 					     "/usr/share/sounds/sf2/FluidR3_GM.sf2");
 
 	fluid_set_log_function(LAST_LOG_LEVEL,

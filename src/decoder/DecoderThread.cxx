@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -60,14 +60,14 @@ decoder_command_finished_locked(DecoderControl &dc)
 }
 
 /**
- * Opens the input stream with input_stream::Open(), and waits until
+ * Opens the input stream with InputStream::Open(), and waits until
  * the stream gets ready.  If a decoder STOP command is received
  * during that, it cancels the operation (but does not close the
  * stream).
  *
  * Unlock the decoder before calling this function.
  *
- * @return an input_stream on success or if #DecoderCommand::STOP is
+ * @return an InputStream on success or if #DecoderCommand::STOP is
  * received, nullptr on error
  */
 static InputStream *
@@ -237,7 +237,8 @@ static bool
 decoder_run_stream_locked(Decoder &decoder, InputStream &is,
 			  const char *uri, bool &tried_r)
 {
-	const char *const suffix = uri_get_suffix(uri);
+	UriSuffixBuffer suffix_buffer;
+	const char *const suffix = uri_get_suffix(uri, suffix_buffer);
 
 	using namespace std::placeholders;
 	const auto f = std::bind(decoder_run_stream_plugin,
@@ -266,12 +267,10 @@ static bool
 decoder_run_stream(Decoder &decoder, const char *uri)
 {
 	DecoderControl &dc = decoder.dc;
-	InputStream *input_stream;
-	bool success;
 
 	dc.Unlock();
 
-	input_stream = decoder_input_stream_open(dc, uri);
+	InputStream *input_stream = decoder_input_stream_open(dc, uri);
 	if (input_stream == nullptr) {
 		dc.Lock();
 		return false;
@@ -280,7 +279,7 @@ decoder_run_stream(Decoder &decoder, const char *uri)
 	dc.Lock();
 
 	bool tried = false;
-	success = dc.command == DecoderCommand::STOP ||
+	const bool success = dc.command == DecoderCommand::STOP ||
 		decoder_run_stream_locked(decoder, *input_stream, uri,
 					  tried) ||
 		/* fallback to mp3: this is needed for bastard streams
@@ -380,13 +379,12 @@ decoder_run_song(DecoderControl &dc,
 {
 	Decoder decoder(dc, dc.start_time.IsPositive(),
 			new Tag(song.GetTag()));
-	int ret;
 
 	dc.state = DecoderState::START;
 
 	decoder_command_finished_locked(dc);
 
-	ret = !path_fs.IsNull()
+	const int ret = !path_fs.IsNull()
 		? decoder_run_file(decoder, uri, path_fs)
 		: decoder_run_stream(decoder, uri);
 

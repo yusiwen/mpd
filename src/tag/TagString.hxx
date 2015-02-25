@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,8 +25,10 @@
 
 #include <stddef.h>
 
-gcc_malloc gcc_nonnull_all
-char *
+template<typename T> struct WritableBuffer;
+
+gcc_nonnull_all
+WritableBuffer<char>
 FixTagString(const char *p, size_t length);
 
 #endif

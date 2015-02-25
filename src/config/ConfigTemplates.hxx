@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,9 +23,9 @@
 struct ConfigTemplate {
 	const char *const name;
 	const bool repeatable;
-	const bool block;
 };
 
-extern const ConfigTemplate config_templates[];
+extern const ConfigTemplate config_param_templates[];
+extern const ConfigTemplate config_block_templates[];
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -43,7 +43,7 @@ audiofile_error_func(long, const char *msg)
 }
 
 static bool
-audiofile_init(const config_param &)
+audiofile_init(const ConfigBlock &)
 {
 	afSetErrorHandler(audiofile_error_func);
 	return true;
@@ -209,7 +209,7 @@ audiofile_stream_decode(Decoder &decoder, InputStream &is)
 	const auto total_time = audiofile_get_duration(fh);
 
 	const uint16_t kbit_rate = (uint16_t)
-		(is.GetSize() * uint64_t(8000) / total_time.ToMS());
+		(is.GetSize() * uint64_t(8) / total_time.ToMS());
 
 	const unsigned frame_size = (unsigned)
 		afGetVirtualFrameSize(fh, AF_DEFAULT_TRACK, true);

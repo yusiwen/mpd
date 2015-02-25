@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 
 #include "Set.hxx"
 #include "TagBuilder.hxx"
+#include "TagSettings.h"
 
 #include <assert.h>
 
@@ -74,7 +75,7 @@ TagSet::InsertUnique(const Tag &src, TagType type, const char *value,
 	else
 		builder.AddItem(type, value);
 	CopyTagMask(builder, src, group_mask);
-#if defined(__clang__) || GCC_CHECK_VERSION(4,8)
+#if CLANG_OR_GCC_VERSION(4,8)
 	emplace(builder.Commit());
 #else
 	insert(builder.Commit());
@@ -109,6 +110,7 @@ TagSet::InsertUnique(const Tag &tag,
 
 	if (!CheckUnique(type, tag, type, group_mask) &&
 	    (type != TAG_ALBUM_ARTIST ||
+	     ignore_tag_items[TAG_ALBUM_ARTIST] ||
 	     /* fall back to "Artist" if no "AlbumArtist" was found */
 	     !CheckUnique(type, tag, TAG_ARTIST, group_mask)))
 		InsertUnique(tag, type, nullptr, group_mask);

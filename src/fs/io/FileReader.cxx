@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 
 #include "config.h"
 #include "FileReader.hxx"
-#include "system/fd_util.h"
+#include "fs/FileSystem.hxx"
 #include "util/Error.hxx"
 
 #ifdef WIN32
@@ -30,8 +30,10 @@ FileReader::FileReader(Path _path, Error &error)
 			   nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
 			   nullptr))
 {
-	if (handle == INVALID_HANDLE_VALUE)
-		error.FormatLastError("Failed to open %s", path.c_str());
+	if (handle == INVALID_HANDLE_VALUE) {
+		const auto path_utf8 = path.ToUTF8();
+		error.FormatLastError("Failed to open %s", path_utf8.c_str());
+	}
 }
 
 size_t
@@ -41,7 +43,9 @@ FileReader::Read(void *data, size_t size, Error &error)
 
 	DWORD nbytes;
 	if (!ReadFile(handle, data, size, &nbytes, nullptr)) {
-		error.FormatLastError("Failed to read from %s", path.c_str());
+		const auto path_utf8 = path.ToUTF8();
+		error.FormatLastError("Failed to read from %s",
+				      path_utf8.c_str());
 		nbytes = 0;
 	}
 
@@ -64,9 +68,9 @@ FileReader::Close()
 
 FileReader::FileReader(Path _path, Error &error)
 	:path(_path),
-	 fd(open_cloexec(path.c_str(),
-			 O_RDONLY,
-			 0))
+	 fd(OpenFile(path,
+		     O_RDONLY,
+		     0))
 {
 	if (fd < 0)
 		error.FormatErrno("Failed to open %s", path.c_str());

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,9 +26,9 @@
 #include "Log.hxx"
 #include "Compiler.h"
 
-#include <glib.h>
-
 #include <dns_sd.h>
+
+#include <arpa/inet.h>
 
 static constexpr Domain bonjour_domain("bonjour");
 
@@ -82,7 +82,7 @@ BonjourInit(EventLoop &loop, const char *service_name)
 	DNSServiceErrorType error = DNSServiceRegister(&dnsReference,
 						       0, 0, service_name,
 						       SERVICE_TYPE, nullptr, nullptr,
-						       g_htons(listen_port), 0,
+						       htons(listen_port), 0,
 						       nullptr,
 						       dnsRegisterCallback,
 						       nullptr);

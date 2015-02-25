@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,10 +27,6 @@
 #include "util/HugeAllocator.hxx"
 #include "util/StringUtil.hxx"
 #include "util/Error.hxx"
-
-extern "C" {
-#include <nfsc/libnfs.h>
-}
 
 #include <string.h>
 #include <sys/stat.h>
@@ -225,7 +221,7 @@ NfsInputStream::OnNfsFileError(Error &&error)
  */
 
 static InputPlugin::InitResult
-input_nfs_init(const config_param &, Error &)
+input_nfs_init(const ConfigBlock &, Error &)
 {
 	nfs_init();
 	return InputPlugin::InitResult::SUCCESS;

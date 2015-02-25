@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 The Music Player Daemon Project
+ * Copyright (C) 2003-2015 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include "protocol/Ack.hxx"
 #include "protocol/Result.hxx"
 #include "client/Client.hxx"
+#include "util/ConstBuffer.hxx"
 #include "util/CharUtil.hxx"
 #include "util/UriUtil.hxx"
 #include "util/Error.hxx"
@@ -201,12 +202,22 @@ read_file_comments(Client &client, const Path path_fs)
 
 }
 
-CommandResult
-handle_read_comments(Client &client, gcc_unused unsigned argc, char *argv[])
+static const char *
+translate_uri(const char *uri)
 {
-	assert(argc == 2);
+	if (memcmp(uri, "file:///", 8) == 0)
+		/* drop the "file://", leave only an absolute path
+		   (starting with a slash) */
+		return uri + 7;
 
-	const char *const uri = argv[1];
+	return uri;
+}
+
+CommandResult
+handle_read_comments(Client &client, ConstBuffer<const char *> args)
+{
+	assert(args.size == 1);
+	const char *const uri = translate_uri(args.front());
 
 	if (memcmp(uri, "file:///", 8) == 0) {
 		/* read comments from arbitrary local file */
