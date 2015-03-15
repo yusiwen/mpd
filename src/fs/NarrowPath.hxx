@@ -17,49 +17,53 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-#include "SocketError.hxx"
-#include "util/Domain.hxx"
+#ifndef MPD_FS_NARROW_PATH_HXX
+#define MPD_FS_NARROW_PATH_HXX
+
+#include "check.h"
+#include "Path.hxx"
 #include "util/Macros.hxx"
 
-#include <string.h>
-
-const Domain socket_domain("socket");
-
-#ifdef WIN32
-
-SocketErrorMessage::SocketErrorMessage(socket_error_t code)
-{
 #ifdef _UNICODE
-	wchar_t buffer[ARRAY_SIZE(msg)];
-#else
-	auto *buffer = msg;
+#include <windows.h>
 #endif
 
-	DWORD nbytes = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
-				     FORMAT_MESSAGE_IGNORE_INSERTS |
-				     FORMAT_MESSAGE_MAX_WIDTH_MASK,
-				     nullptr, code, 0,
-				     buffer, ARRAY_SIZE(msg), nullptr);
-	if (nbytes == 0) {
-		strcpy(msg, "Unknown error");
-		return;
-	}
+/**
+ * A path name that uses the regular (narrow) "char".  This is used to
+ * pass a #Path (which may be represented by wchar_t) to a library
+ * that accepts only "const char *".
+ */
+class NarrowPath {
+	typedef char value_type;
+	typedef const char *const_pointer;
 
 #ifdef _UNICODE
-	auto length = WideCharToMultiByte(CP_UTF8, 0, buffer, -1,
-					  msg, ARRAY_SIZE(msg),
-					  nullptr, nullptr);
-	if (length <= 0) {
-		strcpy(msg, "WideCharToMultiByte() error");
-		return;
-	}
-#endif
-}
-
+	char value[PATH_MAX];
 #else
+	const_pointer value;
+#endif
 
-SocketErrorMessage::SocketErrorMessage(socket_error_t code)
-	:msg(strerror(code)) {}
+public:
+#ifdef _UNICODE
+	explicit NarrowPath(Path _path) {
+		auto result = WideCharToMultiByte(CP_ACP, 0,
+						  _path.c_str(), -1,
+						  value, ARRAY_SIZE(value),
+						  nullptr, nullptr);
+		if (result < 0)
+			value[0] = 0;
+	}
+#else
+	explicit NarrowPath(Path _path):value(_path.c_str()) {}
+#endif
+
+	operator const_pointer() const {
+		return value;
+	}
+
+	const_pointer c_str() const {
+		return value;
+	}
+};
 
 #endif

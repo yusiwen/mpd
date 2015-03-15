@@ -18,37 +18,28 @@
  */
 
 #include "config.h"
-#ifdef USE_EVENTFD
-#include "EventFD.hxx"
-#include "system/FatalError.hxx"
-#include "Compiler.h"
+#include "TagArchive.hxx"
+#include "TagStream.hxx"
+#include "fs/Path.hxx"
+#include "util/Error.hxx"
+#include "input/InputStream.hxx"
+#include "input/plugins/ArchiveInputPlugin.hxx"
+#include "thread/Cond.hxx"
 
 #include <assert.h>
-#include <sys/eventfd.h>
-
-EventFD::EventFD()
-{
-	if (!fd.CreateEventFD(0))
-		FatalSystemError("eventfd() failed");
-}
 
 bool
-EventFD::Read()
+tag_archive_scan(Path path, const tag_handler &handler, void *handler_ctx)
 {
-	assert(fd.IsDefined());
+	assert(!path.IsNull());
 
-	eventfd_t value;
-	return fd.Read(&value, sizeof(value)) == (ssize_t)sizeof(value);
+	Mutex mutex;
+	Cond cond;
+	auto *is = OpenArchiveInputStream(path, mutex, cond, IgnoreError());
+	if (is == nullptr)
+		return false;
+
+	bool result = tag_stream_scan(*is, handler, handler_ctx);
+	delete is;
+	return result;
 }
-
-void
-EventFD::Write()
-{
-	assert(fd.IsDefined());
-
-	static constexpr eventfd_t value = 1;
-	gcc_unused ssize_t nbytes =
-		fd.Write(&value, sizeof(value));
-}
-
-#endif /* USE_EVENTFD */

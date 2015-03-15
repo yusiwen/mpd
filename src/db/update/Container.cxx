@@ -36,7 +36,7 @@
 
 Directory *
 UpdateWalk::MakeDirectoryIfModified(Directory &parent, const char *name,
-				    const FileInfo &info)
+				    const StorageFileInfo &info)
 {
 	Directory *directory = parent.FindChild(name);
 
@@ -69,7 +69,7 @@ SupportsContainerSuffix(const DecoderPlugin &plugin, const char *suffix)
 bool
 UpdateWalk::UpdateContainerFile(Directory &directory,
 				const char *name, const char *suffix,
-				const FileInfo &info)
+				const StorageFileInfo &info)
 {
 	const DecoderPlugin *_plugin = decoder_plugins_find([suffix](const DecoderPlugin &plugin){
 			return SupportsContainerSuffix(plugin, suffix);
@@ -106,8 +106,11 @@ UpdateWalk::UpdateContainerFile(Directory &directory,
 		// shouldn't be necessary but it's there..
 		song->mtime = info.mtime;
 
+		const auto vtrack_fs = AllocatedPath::FromUTF8(vtrack);
+		// TODO: check vtrack_fs.IsNull()
+
 		const auto child_path_fs = AllocatedPath::Build(pathname,
-								vtrack);
+								vtrack_fs);
 		plugin.ScanFile(child_path_fs,
 				add_tag_handler, &tag_builder);
 

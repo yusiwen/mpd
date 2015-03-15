@@ -123,6 +123,16 @@ public:
 	}
 
 	/**
+	 * Does the path contain a newline character?  (Which is
+	 * usually rejected by MPD because its protocol cannot
+	 * transfer newline characters).
+	 */
+	gcc_pure
+	bool HasNewline() const {
+		return PathTraitsFS::Find(value, '\n') != nullptr;
+	}
+
+	/**
 	 * Convert the path to UTF-8.
 	 * Returns empty string on error or if this instance is "nulled"
 	 * (#IsNull returns true).
@@ -153,14 +163,17 @@ public:
 	 * nullptr on mismatch.
 	 */
 	gcc_pure
-	const_pointer RelativeFS(const_pointer other_fs) const {
-		return PathTraitsFS::Relative(value, other_fs);
+	const_pointer Relative(Path other_fs) const {
+		return PathTraitsFS::Relative(c_str(), other_fs.c_str());
 	}
 
 	gcc_pure
-	bool IsAbsolute() {
+	bool IsAbsolute() const {
 		return PathTraitsFS::IsAbsolute(c_str());
 	}
+
+	gcc_pure
+	const_pointer GetSuffix() const;
 };
 
 #endif

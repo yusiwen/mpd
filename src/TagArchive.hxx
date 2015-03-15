@@ -17,38 +17,23 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-#ifdef USE_EVENTFD
-#include "EventFD.hxx"
-#include "system/FatalError.hxx"
-#include "Compiler.h"
+#ifndef MPD_TAG_ARCHIVE_HXX
+#define MPD_TAG_ARCHIVE_HXX
 
-#include <assert.h>
-#include <sys/eventfd.h>
+#include "check.h"
 
-EventFD::EventFD()
-{
-	if (!fd.CreateEventFD(0))
-		FatalSystemError("eventfd() failed");
-}
+class Path;
+struct tag_handler;
 
+/**
+ * Scan the tags of a song file inside an archive.  Invokes matching
+ * decoder plugins, but does not invoke the special "APE" and "ID3"
+ * scanners.
+ *
+ * @return true if the file was recognized (even if no metadata was
+ * found)
+ */
 bool
-EventFD::Read()
-{
-	assert(fd.IsDefined());
+tag_archive_scan(Path path, const tag_handler &handler, void *handler_ctx);
 
-	eventfd_t value;
-	return fd.Read(&value, sizeof(value)) == (ssize_t)sizeof(value);
-}
-
-void
-EventFD::Write()
-{
-	assert(fd.IsDefined());
-
-	static constexpr eventfd_t value = 1;
-	gcc_unused ssize_t nbytes =
-		fd.Write(&value, sizeof(value));
-}
-
-#endif /* USE_EVENTFD */
+#endif

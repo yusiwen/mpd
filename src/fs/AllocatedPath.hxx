@@ -249,7 +249,9 @@ public:
 	 * nullptr on mismatch.
 	 */
 	gcc_pure
-	const char *RelativeFS(const char *other_fs) const;
+	const_pointer Relative(Path other_fs) const {
+		return PathTraitsFS::Relative(c_str(), other_fs.c_str());
+	}
 
 	/**
 	 * Chop trailing directory separators.
@@ -257,7 +259,7 @@ public:
 	void ChopSeparators();
 
 	gcc_pure
-	bool IsAbsolute() {
+	bool IsAbsolute() const {
 		return PathTraitsFS::IsAbsolute(c_str());
 	}
 };

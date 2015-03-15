@@ -17,38 +17,27 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
-#ifdef USE_EVENTFD
-#include "EventFD.hxx"
-#include "system/FatalError.hxx"
+#ifndef WSTRING_UTIL_HXX
+#define WSTRING_UTIL_HXX
+
 #include "Compiler.h"
 
-#include <assert.h>
-#include <sys/eventfd.h>
+#include <wchar.h>
 
-EventFD::EventFD()
-{
-	if (!fd.CreateEventFD(0))
-		FatalSystemError("eventfd() failed");
-}
-
+gcc_pure
 bool
-EventFD::Read()
-{
-	assert(fd.IsDefined());
+StringStartsWith(const wchar_t *haystack, const wchar_t *needle);
 
-	eventfd_t value;
-	return fd.Read(&value, sizeof(value)) == (ssize_t)sizeof(value);
-}
+gcc_pure
+bool
+StringEndsWith(const wchar_t *haystack, const wchar_t *needle);
 
-void
-EventFD::Write()
-{
-	assert(fd.IsDefined());
+/**
+ * Check if the given string ends with the specified suffix.  If yes,
+ * returns the position of the suffix, and nullptr otherwise.
+ */
+gcc_pure
+const wchar_t *
+FindStringSuffix(const wchar_t *p, const wchar_t *suffix);
 
-	static constexpr eventfd_t value = 1;
-	gcc_unused ssize_t nbytes =
-		fd.Write(&value, sizeof(value));
-}
-
-#endif /* USE_EVENTFD */
+#endif
