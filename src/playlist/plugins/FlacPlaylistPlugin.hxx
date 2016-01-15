@@ -17,13 +17,9 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_TAG_SETTINGS_H
-#define MPD_TAG_SETTINGS_H
+#ifndef MPD_FLAC_PLAYLIST_PLUGIN_HXX
+#define MPD_FLAC_PLAYLIST_PLUGIN_HXX
 
-#include "TagType.h"
-
-#include <stdbool.h>
-
-extern bool ignore_tag_items[TAG_NUM_OF_ITEM_TYPES];
+extern const struct playlist_plugin flac_playlist_plugin;
 
 #endif

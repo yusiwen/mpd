@@ -26,7 +26,7 @@
 #include "PlaylistDatabase.hxx"
 #include "fs/io/TextFile.hxx"
 #include "fs/io/BufferedOutputStream.hxx"
-#include "util/StringUtil.hxx"
+#include "util/StringCompare.hxx"
 #include "util/NumberParser.hxx"
 #include "util/Error.hxx"
 #include "util/Domain.hxx"
@@ -90,9 +90,6 @@ directory_save(BufferedOutputStream &os, const Directory &directory)
 
 		if (!child.IsMount())
 			directory_save(os, child);
-
-		if (!os.Check())
-			return;
 	}
 
 	for (const auto &song : directory.songs)
@@ -107,12 +104,11 @@ directory_save(BufferedOutputStream &os, const Directory &directory)
 static bool
 ParseLine(Directory &directory, const char *line)
 {
-	if (StringStartsWith(line, DIRECTORY_MTIME)) {
-		directory.mtime =
-			ParseUint64(line + sizeof(DIRECTORY_MTIME) - 1);
-	} else if (StringStartsWith(line, DIRECTORY_TYPE)) {
-		directory.device =
-			ParseTypeString(line + sizeof(DIRECTORY_TYPE) - 1);
+	const char *p;
+	if ((p = StringAfterPrefix(line, DIRECTORY_MTIME))) {
+		directory.mtime = ParseUint64(p);
+	} else if ((p = StringAfterPrefix(line, DIRECTORY_TYPE))) {
+		directory.device = ParseTypeString(p);
 	} else
 		return false;
 
@@ -168,15 +164,15 @@ directory_load(TextFile &file, Directory &directory, Error &error)
 
 	while ((line = file.ReadLine()) != nullptr &&
 	       !StringStartsWith(line, DIRECTORY_END)) {
-		if (StringStartsWith(line, DIRECTORY_DIR)) {
+		const char *p;
+		if ((p = StringAfterPrefix(line, DIRECTORY_DIR))) {
 			Directory *subdir =
 				directory_load_subdir(file, directory,
-						      line + sizeof(DIRECTORY_DIR) - 1,
-						      error);
+						      p, error);
 			if (subdir == nullptr)
 				return false;
-		} else if (StringStartsWith(line, SONG_BEGIN)) {
-			const char *name = line + sizeof(SONG_BEGIN) - 1;
+		} else if ((p = StringAfterPrefix(line, SONG_BEGIN))) {
+			const char *name = p;
 
 			if (directory.FindSong(name) != nullptr) {
 				error.Format(directory_domain,
@@ -191,8 +187,8 @@ directory_load(TextFile &file, Directory &directory, Error &error)
 			directory.AddSong(Song::NewFrom(std::move(*song),
 							directory));
 			delete song;
-		} else if (StringStartsWith(line, PLAYLIST_META_BEGIN)) {
-			const char *name = line + sizeof(PLAYLIST_META_BEGIN) - 1;
+		} else if ((p = StringAfterPrefix(line, PLAYLIST_META_BEGIN))) {
+			const char *name = p;
 			if (!playlist_metadata_load(file, directory.playlists,
 						    name, error))
 				return false;

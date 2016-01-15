@@ -30,7 +30,7 @@
 #include "../InputStream.hxx"
 #include "util/Domain.hxx"
 #include "util/Error.hxx"
-#include "util/StringUtil.hxx"
+#include "util/StringCompare.hxx"
 #include "util/ReusableArray.hxx"
 
 #include "Log.hxx"
@@ -159,12 +159,11 @@ inline InputStream *
 AlsaInputStream::Create(const char *uri, Mutex &mutex, Cond &cond,
 			Error &error)
 {
-	const char *const scheme = "alsa://";
-	if (!StringStartsWith(uri, scheme))
+	const char *device = StringAfterPrefix(uri, "alsa://");
+	if (device == nullptr)
 		return nullptr;
 
-	const char *device = uri + strlen(scheme);
-	if (strlen(device) == 0)
+	if (*device == 0)
 		device = default_device;
 
 	/* placeholders - eventually user-requested audio format will

@@ -21,6 +21,7 @@
 #include "ApeLoader.hxx"
 #include "system/ByteOrder.hxx"
 #include "fs/FileSystem.hxx"
+#include "util/StringView.hxx"
 
 #include <stdint.h>
 #include <assert.h>
@@ -78,18 +79,18 @@ ape_scan_internal(FILE *fp, ApeTagCallback callback)
 
 		/* get the key */
 		const char *key = p;
-		while (remaining > size && *p != '\0') {
-			p++;
-			remaining--;
-		}
-		p++;
-		remaining--;
+		const char *key_end = (const char *)memchr(p, '\0', remaining);
+		if (key_end == nullptr)
+			break;
+
+		p = key_end + 1;
+		remaining -= p - key;
 
 		/* get the value */
 		if (remaining < size)
 			break;
 
-		if (!callback(flags, key, p, size))
+		if (!callback(flags, key, {p, size}))
 			break;
 
 		p += size;

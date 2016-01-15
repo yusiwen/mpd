@@ -24,21 +24,22 @@
 
 class Client;
 class Storage;
-template<typename T> struct ConstBuffer;
+class Request;
+class Response;
 
 CommandResult
-handle_listfiles_storage(Client &client, Storage &storage, const char *uri);
+handle_listfiles_storage(Response &r, Storage &storage, const char *uri);
 
 CommandResult
-handle_listfiles_storage(Client &client, const char *uri);
+handle_listfiles_storage(Response &r, const char *uri);
 
 CommandResult
-handle_listmounts(Client &client, ConstBuffer<const char *> args);
+handle_listmounts(Client &client, Request request, Response &response);
 
 CommandResult
-handle_mount(Client &client, ConstBuffer<const char *> args);
+handle_mount(Client &client, Request request, Response &response);
 
 CommandResult
-handle_unmount(Client &client, ConstBuffer<const char *> args);
+handle_unmount(Client &client, Request request, Response &response);
 
 #endif

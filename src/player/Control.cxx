@@ -18,7 +18,7 @@
  */
 
 #include "config.h"
-#include "PlayerControl.hxx"
+#include "Control.hxx"
 #include "Idle.hxx"
 #include "DetachedSong.hxx"
 
@@ -54,29 +54,19 @@ PlayerControl::Play(DetachedSong *song)
 {
 	assert(song != nullptr);
 
-	Lock();
-
-	if (state != PlayerState::STOP)
-		SynchronousCommand(PlayerCommand::STOP);
-
-	assert(next_song == nullptr);
-
-	EnqueueSongLocked(song);
-
-	assert(next_song == nullptr);
-
-	Unlock();
+	const ScopeLock protect(mutex);
+	SeekLocked(song, SongTime::zero(), IgnoreError());
 }
 
 void
-PlayerControl::Cancel()
+PlayerControl::LockCancel()
 {
 	LockSynchronousCommand(PlayerCommand::CANCEL);
 	assert(next_song == nullptr);
 }
 
 void
-PlayerControl::Stop()
+PlayerControl::LockStop()
 {
 	LockSynchronousCommand(PlayerCommand::CLOSE_AUDIO);
 	assert(next_song == nullptr);
@@ -85,7 +75,7 @@ PlayerControl::Stop()
 }
 
 void
-PlayerControl::UpdateAudio()
+PlayerControl::LockUpdateAudio()
 {
 	LockSynchronousCommand(PlayerCommand::UPDATE_AUDIO);
 }
@@ -111,17 +101,16 @@ PlayerControl::PauseLocked()
 }
 
 void
-PlayerControl::Pause()
+PlayerControl::LockPause()
 {
-	Lock();
+	const ScopeLock protect(mutex);
 	PauseLocked();
-	Unlock();
 }
 
 void
-PlayerControl::SetPause(bool pause_flag)
+PlayerControl::LockSetPause(bool pause_flag)
 {
-	Lock();
+	const ScopeLock protect(mutex);
 
 	switch (state) {
 	case PlayerState::STOP:
@@ -137,24 +126,21 @@ PlayerControl::SetPause(bool pause_flag)
 			PauseLocked();
 		break;
 	}
-
-	Unlock();
 }
 
 void
-PlayerControl::SetBorderPause(bool _border_pause)
+PlayerControl::LockSetBorderPause(bool _border_pause)
 {
-	Lock();
+	const ScopeLock protect(mutex);
 	border_pause = _border_pause;
-	Unlock();
 }
 
 player_status
-PlayerControl::GetStatus()
+PlayerControl::LockGetStatus()
 {
 	player_status status;
 
-	Lock();
+	const ScopeLock protect(mutex);
 	SynchronousCommand(PlayerCommand::REFRESH);
 
 	status.state = state;
@@ -165,8 +151,6 @@ PlayerControl::GetStatus()
 		status.total_time = total_time;
 		status.elapsed_time = elapsed_time;
 	}
-
-	Unlock();
 
 	return status;
 }
@@ -182,25 +166,18 @@ PlayerControl::SetError(PlayerError type, Error &&_error)
 }
 
 void
-PlayerControl::ClearError()
+PlayerControl::LockClearError()
 {
-	Lock();
-
-	if (error_type != PlayerError::NONE) {
-	    error_type = PlayerError::NONE;
-	    error.Clear();
-	}
-
-	Unlock();
+	const ScopeLock protect(mutex);
+	ClearError();
 }
 
 void
 PlayerControl::LockSetTaggedSong(const DetachedSong &song)
 {
-	Lock();
+	const ScopeLock protect(mutex);
 	delete tagged_song;
 	tagged_song = new DetachedSong(song);
-	Unlock();
 }
 
 void
@@ -211,29 +188,55 @@ PlayerControl::ClearTaggedSong()
 }
 
 void
-PlayerControl::EnqueueSong(DetachedSong *song)
+PlayerControl::LockEnqueueSong(DetachedSong *song)
 {
 	assert(song != nullptr);
 
-	Lock();
+	const ScopeLock protect(mutex);
 	EnqueueSongLocked(song);
-	Unlock();
 }
 
 bool
-PlayerControl::Seek(DetachedSong *song, SongTime t)
+PlayerControl::SeekLocked(DetachedSong *song, SongTime t, Error &error_r)
 {
 	assert(song != nullptr);
 
-	Lock();
+	/* to issue the SEEK command below, we need to clear the
+	   "next_song" attribute with the CANCEL command */
+	/* optimization TODO: if the decoder happens to decode that
+	   song already, don't cancel that */
+	if (next_song != nullptr)
+		SynchronousCommand(PlayerCommand::CANCEL);
 
-	delete next_song;
+	assert(next_song == nullptr);
+
+	ClearError();
 	next_song = song;
 	seek_time = t;
 	SynchronousCommand(PlayerCommand::SEEK);
-	Unlock();
 
 	assert(next_song == nullptr);
+
+	if (error_type != PlayerError::NONE) {
+		assert(error.IsDefined());
+		error_r.Set(error);
+		return false;
+	}
+
+	assert(!error.IsDefined());
+	return true;
+}
+
+bool
+PlayerControl::LockSeek(DetachedSong *song, SongTime t, Error &error_r)
+{
+	assert(song != nullptr);
+
+	{
+		const ScopeLock protect(mutex);
+		if (!SeekLocked(song, t, error_r))
+			return false;
+	}
 
 	idle_add(IDLE_PLAYER);
 

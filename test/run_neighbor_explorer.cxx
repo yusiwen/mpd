@@ -46,7 +46,7 @@ class MyNeighborListener final : public NeighborListener {
 
 int
 main(int argc, char **argv)
-{
+try {
 	if (argc != 2) {
 		fprintf(stderr, "Usage: run_neighbor_explorer CONFIG\n");
 		return EXIT_FAILURE;
@@ -59,10 +59,7 @@ main(int argc, char **argv)
 	Error error;
 
 	config_global_init();
-	if (!ReadConfigFile(config_path, error)) {
-		LogError(error);
-		return EXIT_FAILURE;
-	}
+	ReadConfigFile(config_path);
 
 	/* initialize the core */
 
@@ -82,4 +79,7 @@ main(int argc, char **argv)
 	loop.Run();
 	neighbor.Close();
 	return EXIT_SUCCESS;
-}
+ } catch (const std::exception &e) {
+	LogError(e);
+	return EXIT_FAILURE;
+ }

@@ -18,6 +18,7 @@
  */
 
 #include "StringUtil.hxx"
+#include "StringAPI.hxx"
 #include "CharUtil.hxx"
 #include "ASCII.hxx"
 
@@ -25,39 +26,6 @@
 
 #include <assert.h>
 #include <string.h>
-
-bool
-StringStartsWith(const char *haystack, const char *needle)
-{
-	const size_t length = strlen(needle);
-	return memcmp(haystack, needle, length) == 0;
-}
-
-bool
-StringEndsWith(const char *haystack, const char *needle)
-{
-	const size_t haystack_length = strlen(haystack);
-	const size_t needle_length = strlen(needle);
-
-	return haystack_length >= needle_length &&
-		memcmp(haystack + haystack_length - needle_length,
-		       needle, needle_length) == 0;
-}
-
-const char *
-FindStringSuffix(const char *p, const char *suffix)
-{
-	const size_t p_length = strlen(p);
-	const size_t suffix_length = strlen(suffix);
-
-	if (p_length < suffix_length)
-		return nullptr;
-
-	const char *q = p + p_length - suffix_length;
-	return memcmp(q, suffix, suffix_length) == 0
-		? q
-		: nullptr;
-}
 
 char *
 CopyString(char *gcc_restrict dest, const char *gcc_restrict src, size_t size)

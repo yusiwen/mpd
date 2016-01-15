@@ -19,6 +19,7 @@
 
 #include "config.h"
 #include "DecoderControl.hxx"
+#include "DecoderError.hxx"
 #include "MusicPipe.hxx"
 #include "DetachedSong.hxx"
 
@@ -89,7 +90,7 @@ DecoderControl::Start(DetachedSong *_song,
 void
 DecoderControl::Stop()
 {
-	Lock();
+	const ScopeLock protect(mutex);
 
 	if (command != DecoderCommand::NONE)
 		/* Attempt to cancel the current command.  If it's too
@@ -100,24 +101,44 @@ DecoderControl::Stop()
 
 	if (state != DecoderState::STOP && state != DecoderState::ERROR)
 		SynchronousCommandLocked(DecoderCommand::STOP);
-
-	Unlock();
 }
 
 bool
-DecoderControl::Seek(SongTime t)
+DecoderControl::Seek(SongTime t, Error &error_r)
 {
 	assert(state != DecoderState::START);
+	assert(state != DecoderState::ERROR);
 
-	if (state == DecoderState::STOP ||
-	    state == DecoderState::ERROR || !seekable)
+	switch (state) {
+	case DecoderState::START:
+	case DecoderState::ERROR:
+		gcc_unreachable();
+
+	case DecoderState::STOP:
+		/* TODO: if this happens, the caller should be given a
+		   chance to restart the decoder */
+		error_r.Set(decoder_domain, "Decoder is dead");
 		return false;
+
+	case DecoderState::DECODE:
+		break;
+	}
+
+	if (!seekable) {
+		error_r.Set(decoder_domain, "Not seekable");
+		return false;
+	}
 
 	seek_time = t;
 	seek_error = false;
 	LockSynchronousCommand(DecoderCommand::SEEK);
 
-	return !seek_error;
+	if (seek_error) {
+		error_r.Set(decoder_domain, "Decoder failed to seek");
+		return false;
+	}
+
+	return true;
 }
 
 void

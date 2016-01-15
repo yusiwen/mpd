@@ -25,7 +25,7 @@
 #include "PlaylistGlobal.hxx"
 #include "MusicChunk.hxx"
 #include "StateFile.hxx"
-#include "PlayerThread.hxx"
+#include "player/Thread.hxx"
 #include "Mapper.hxx"
 #include "Permission.hxx"
 #include "Listen.hxx"
@@ -53,7 +53,6 @@
 #include "system/FatalError.hxx"
 #include "util/UriUtil.hxx"
 #include "util/Error.hxx"
-#include "util/Domain.hxx"
 #include "thread/Id.hxx"
 #include "thread/Slack.hxx"
 #include "lib/icu/Init.hxx"
@@ -125,8 +124,6 @@
 
 static constexpr unsigned DEFAULT_BUFFER_SIZE = 4096;
 static constexpr unsigned DEFAULT_BUFFER_BEFORE_PLAY = 10;
-
-static constexpr Domain main_domain("main");
 
 #ifdef ANDROID
 Context *context;
@@ -447,28 +444,28 @@ int mpd_main(int argc, char *argv[])
 	io_thread_init();
 	config_global_init();
 
+	try {
 #ifdef ANDROID
-	(void)argc;
-	(void)argv;
+		(void)argc;
+		(void)argv;
 
-	{
 		const auto sdcard = Environment::getExternalStorageDirectory();
 		if (!sdcard.IsNull()) {
 			const auto config_path =
 				AllocatedPath::Build(sdcard, "mpd.conf");
-			if (FileExists(config_path) &&
-			    !ReadConfigFile(config_path, error)) {
-				LogError(error);
-				return EXIT_FAILURE;
-			}
+			if (FileExists(config_path))
+				ReadConfigFile(config_path);
 		}
-	}
 #else
-	if (!parse_cmdline(argc, argv, &options, error)) {
-		LogError(error);
+		if (!parse_cmdline(argc, argv, &options, error)) {
+			LogError(error);
+			return EXIT_FAILURE;
+		}
+#endif
+	} catch (const std::exception &e) {
+		LogError(e);
 		return EXIT_FAILURE;
 	}
-#endif
 
 #ifdef ENABLE_DAEMON
 	if (!glue_daemonize_init(&options, error)) {
@@ -639,7 +636,7 @@ static int mpd_main_after_fork(struct options options)
 					 config_get_unsigned(ConfigOption::AUTO_UPDATE_DEPTH,
 							     INT_MAX));
 #else
-		FormatWarning(main_domain,
+		FormatWarning(config_domain,
 			      "inotify: auto_update was disabled. enable during compilation phase");
 #endif
 	}
@@ -649,7 +646,7 @@ static int mpd_main_after_fork(struct options options)
 
 	/* enable all audio outputs (if not already done by
 	   playlist_state_restore() */
-	instance->partition->pc.UpdateAudio();
+	instance->partition->pc.LockUpdateAudio();
 
 #ifdef WIN32
 	win32_app_started();

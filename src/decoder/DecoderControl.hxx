@@ -213,10 +213,8 @@ struct DecoderControl {
 
 	gcc_pure
 	bool LockIsIdle() const {
-		Lock();
-		bool result = IsIdle();
-		Unlock();
-		return result;
+		const ScopeLock protect(mutex);
+		return IsIdle();
 	}
 
 	bool IsStarting() const {
@@ -225,10 +223,8 @@ struct DecoderControl {
 
 	gcc_pure
 	bool LockIsStarting() const {
-		Lock();
-		bool result = IsStarting();
-		Unlock();
-		return result;
+		const ScopeLock protect(mutex);
+		return IsStarting();
 	}
 
 	bool HasFailed() const {
@@ -239,10 +235,8 @@ struct DecoderControl {
 
 	gcc_pure
 	bool LockHasFailed() const {
-		Lock();
-		bool result = HasFailed();
-		Unlock();
-		return result;
+		const ScopeLock protect(mutex);
+		return HasFailed();
 	}
 
 	/**
@@ -267,10 +261,8 @@ struct DecoderControl {
 	 */
 	gcc_pure
 	Error LockGetError() const {
-		Lock();
-		Error result = GetError();
-		Unlock();
-		return result;
+		const ScopeLock protect(mutex);
+		return GetError();
 	}
 
 	/**
@@ -297,10 +289,8 @@ struct DecoderControl {
 
 	gcc_pure
 	bool LockIsCurrentSong(const DetachedSong &_song) const {
-		Lock();
-		const bool result = IsCurrentSong(_song);
-		Unlock();
-		return result;
+		const ScopeLock protect(mutex);
+		return IsCurrentSong(_song);
 	}
 
 private:
@@ -336,20 +326,32 @@ private:
 	 * object.
 	 */
 	void LockSynchronousCommand(DecoderCommand cmd) {
-		Lock();
+		const ScopeLock protect(mutex);
 		ClearError();
 		SynchronousCommandLocked(cmd);
-		Unlock();
 	}
 
 	void LockAsynchronousCommand(DecoderCommand cmd) {
-		Lock();
+		const ScopeLock protect(mutex);
 		command = cmd;
 		Signal();
-		Unlock();
 	}
 
 public:
+	/**
+	 * Marks the current command as "finished" and notifies the
+	 * client (= player thread).
+	 *
+	 * To be called from the decoder thread.  Caller must lock the
+	 * mutex.
+	 */
+	void CommandFinishedLocked() {
+		assert(command != DecoderCommand::NONE);
+
+		command = DecoderCommand::NONE;
+		client_cond.signal();
+	}
+
 	/**
 	 * Start the decoder.
 	 *
@@ -365,7 +367,7 @@ public:
 
 	void Stop();
 
-	bool Seek(SongTime t);
+	bool Seek(SongTime t, Error &error_r);
 
 	void Quit();
 

@@ -80,9 +80,11 @@ UpdateService::CancelMount(const char *uri)
 	/* determine which (mounted) database will be updated and what
 	   storage will be scanned */
 
-	db_lock();
-	const auto lr = db.GetRoot().LookupDirectory(uri);
-	db_unlock();
+	Directory::LookupResult lr;
+	{
+		const ScopeDatabaseLock protect;
+		lr = db.GetRoot().LookupDirectory(uri);
+	}
 
 	if (!lr.directory->IsMount())
 		return;
@@ -127,9 +129,11 @@ UpdateService::Task()
 			      next.discard);
 
 	if (modified || !next.db->FileExists()) {
-		Error error;
-		if (!next.db->Save(error))
-			LogError(error, "Failed to save database");
+		try {
+			next.db->Save();
+		} catch (const std::exception &e) {
+			LogError(e, "Failed to save database");
+		}
 	}
 
 	if (!next.path_utf8.empty())
@@ -188,9 +192,12 @@ UpdateService::Enqueue(const char *path, bool discard)
 	SimpleDatabase *db2;
 	Storage *storage2;
 
-	db_lock();
-	const auto lr = db.GetRoot().LookupDirectory(path);
-	db_unlock();
+	Directory::LookupResult lr;
+	{
+		const ScopeDatabaseLock protect;
+		lr = db.GetRoot().LookupDirectory(path);
+	}
+
 	if (lr.directory->IsMount()) {
 		/* follow the mountpoint, update the mounted
 		   database */

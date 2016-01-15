@@ -83,7 +83,7 @@ public:
 		return *root;
 	}
 
-	bool Save(Error &error);
+	void Save();
 
 	/**
 	 * Returns true if there is a valid database file on the disk.
@@ -121,7 +121,7 @@ public:
 			   Error &error) const override;
 
 	virtual bool VisitUniqueTags(const DatabaseSelection &selection,
-				     TagType tag_type, uint32_t group_mask,
+				     TagType tag_type, tag_mask_t group_mask,
 				     VisitTag visit_tag,
 				     Error &error) const override;
 

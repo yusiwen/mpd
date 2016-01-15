@@ -17,11 +17,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "WStringUtil.hxx"
+#include "WStringCompare.hxx"
 #include "WStringAPI.hxx"
-#include "ASCII.hxx"
-
-#include <algorithm>
 
 #include <assert.h>
 #include <string.h>
@@ -29,17 +26,33 @@
 bool
 StringStartsWith(const wchar_t *haystack, const wchar_t *needle)
 {
-  return memcmp(haystack, needle, StringLength(needle) * sizeof(needle[0])) == 0;
+	const size_t length = StringLength(needle);
+	return StringIsEqual(haystack, needle, length);
 }
 
 bool
 StringEndsWith(const wchar_t *haystack, const wchar_t *needle)
 {
-  const size_t haystack_length = StringLength(haystack);
-  const size_t needle_length = StringLength(needle);
+	const size_t haystack_length = StringLength(haystack);
+	const size_t needle_length = StringLength(needle);
 
-  return haystack_length >= needle_length &&
-    StringIsEqual(haystack + haystack_length - needle_length, needle);
+	return haystack_length >= needle_length &&
+		StringIsEqual(haystack + haystack_length - needle_length, needle);
+}
+
+const wchar_t *
+StringAfterPrefix(const wchar_t *string, const wchar_t *prefix)
+{
+#if !CLANG_CHECK_VERSION(3,6)
+	/* disabled on clang due to -Wtautological-pointer-compare */
+	assert(string != nullptr);
+	assert(prefix != nullptr);
+#endif
+
+	size_t prefix_length = StringLength(prefix);
+	return StringIsEqual(string, prefix, prefix_length)
+		? string + prefix_length
+		: nullptr;
 }
 
 const wchar_t *

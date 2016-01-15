@@ -19,19 +19,15 @@
 
 #include "config.h"
 #include "SongLoader.hxx"
+#include "LocateUri.hxx"
 #include "client/Client.hxx"
 #include "db/DatabaseSong.hxx"
 #include "storage/StorageInterface.hxx"
-#include "ls.hxx"
-#include "fs/AllocatedPath.hxx"
-#include "fs/Traits.hxx"
-#include "util/UriUtil.hxx"
 #include "util/Error.hxx"
 #include "DetachedSong.hxx"
 #include "PlaylistError.hxx"
 
 #include <assert.h>
-#include <string.h>
 
 #ifdef ENABLE_DATABASE
 
@@ -42,7 +38,22 @@ SongLoader::SongLoader(const Client &_client)
 #endif
 
 DetachedSong *
-SongLoader::LoadFile(const char *path_utf8, Error &error) const
+SongLoader::LoadFromDatabase(const char *uri, Error &error) const
+{
+#ifdef ENABLE_DATABASE
+	if (db != nullptr)
+		return DatabaseDetachSong(*db, *storage, uri, error);
+#else
+	(void)uri;
+#endif
+
+	error.Set(playlist_domain, int(PlaylistResult::NO_SUCH_SONG),
+		  "No database");
+	return nullptr;
+}
+
+DetachedSong *
+SongLoader::LoadFile(const char *path_utf8, Path path_fs, Error &error) const
 {
 #ifdef ENABLE_DATABASE
 	if (storage != nullptr) {
@@ -50,21 +61,12 @@ SongLoader::LoadFile(const char *path_utf8, Error &error) const
 		if (suffix != nullptr)
 			/* this path was relative to the music
 			   directory - obtain it from the database */
-			return LoadSong(suffix, error);
+			return LoadFromDatabase(suffix, error);
 	}
 #endif
 
-	if (client != nullptr) {
-		const auto path_fs = AllocatedPath::FromUTF8(path_utf8, error);
-		if (path_fs.IsNull())
-			return nullptr;
-
-		if (!client->AllowFile(path_fs, error))
-			return nullptr;
-	}
-
 	DetachedSong *song = new DetachedSong(path_utf8);
-	if (!song->Update()) {
+	if (!song->LoadFile(path_fs)) {
 		error.Set(playlist_domain, int(PlaylistResult::NO_SUCH_SONG),
 			  "No such file");
 		delete song;
@@ -75,6 +77,27 @@ SongLoader::LoadFile(const char *path_utf8, Error &error) const
 }
 
 DetachedSong *
+SongLoader::LoadSong(const LocatedUri &located_uri, Error &error) const
+{
+	switch (located_uri.type) {
+	case LocatedUri::Type::UNKNOWN:
+		gcc_unreachable();
+
+	case LocatedUri::Type::ABSOLUTE:
+		return new DetachedSong(located_uri.canonical_uri);
+
+	case LocatedUri::Type::RELATIVE:
+		return LoadFromDatabase(located_uri.canonical_uri, error);
+
+	case LocatedUri::Type::PATH:
+		return LoadFile(located_uri.canonical_uri, located_uri.path,
+				error);
+	}
+
+	gcc_unreachable();
+}
+
+DetachedSong *
 SongLoader::LoadSong(const char *uri_utf8, Error &error) const
 {
 #if !CLANG_CHECK_VERSION(3,6)
@@ -82,33 +105,13 @@ SongLoader::LoadSong(const char *uri_utf8, Error &error) const
 	assert(uri_utf8 != nullptr);
 #endif
 
-	if (memcmp(uri_utf8, "file:///", 8) == 0)
-		/* absolute path */
-		return LoadFile(uri_utf8 + 7, error);
-	else if (PathTraitsUTF8::IsAbsolute(uri_utf8))
-		/* absolute path */
-		return LoadFile(uri_utf8, error);
-	else if (uri_has_scheme(uri_utf8)) {
-		/* remove URI */
-		if (!uri_supported_scheme(uri_utf8)) {
-			error.Set(playlist_domain,
-				  int(PlaylistResult::NO_SUCH_SONG),
-				  "Unsupported URI scheme");
-			return nullptr;
-		}
-
-		return new DetachedSong(uri_utf8);
-	} else {
-		/* URI relative to the music directory */
-
+	const auto located_uri = LocateUri(uri_utf8, client,
 #ifdef ENABLE_DATABASE
-		if (db != nullptr)
-			return DatabaseDetachSong(*db, *storage,
-						  uri_utf8, error);
+					   storage,
 #endif
-
-		error.Set(playlist_domain, int(PlaylistResult::NO_SUCH_SONG),
-			  "No database");
+					   error);
+	if (located_uri.IsUnknown())
 		return nullptr;
-	}
+
+	return LoadSong(located_uri, error);
 }

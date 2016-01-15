@@ -210,9 +210,8 @@ struct PlayerControl {
 	 * this function.
 	 */
 	void LockSignal() {
-		Lock();
+		const ScopeLock protect(mutex);
 		Signal();
-		Unlock();
 	}
 
 	/**
@@ -263,6 +262,11 @@ struct PlayerControl {
 		ClientSignal();
 	}
 
+	void LockCommandFinished() {
+		const ScopeLock protect(mutex);
+		CommandFinished();
+	}
+
 private:
 	/**
 	 * Wait for the command to be finished by the player thread.
@@ -298,9 +302,8 @@ private:
 	 * object.
 	 */
 	void LockSynchronousCommand(PlayerCommand cmd) {
-		Lock();
+		const ScopeLock protect(mutex);
 		SynchronousCommand(cmd);
-		Unlock();
 	}
 
 public:
@@ -313,25 +316,30 @@ public:
 	/**
 	 * see PlayerCommand::CANCEL
 	 */
-	void Cancel();
+	void LockCancel();
 
-	void SetPause(bool pause_flag);
+	void LockSetPause(bool pause_flag);
 
 private:
 	void PauseLocked();
 
+	void ClearError() {
+		error_type = PlayerError::NONE;
+		error.Clear();
+	}
+
 public:
-	void Pause();
+	void LockPause();
 
 	/**
 	 * Set the player's #border_pause flag.
 	 */
-	void SetBorderPause(bool border_pause);
+	void LockSetBorderPause(bool border_pause);
 
 	void Kill();
 
 	gcc_pure
-	player_status GetStatus();
+	player_status LockGetStatus();
 
 	PlayerState GetState() const {
 		return state;
@@ -366,13 +374,11 @@ public:
 	 */
 	gcc_pure
 	Error LockGetError() const {
-		Lock();
-		Error result = GetError();
-		Unlock();
-		return result;
+		const ScopeLock protect(mutex);
+		return GetError();
 	}
 
-	void ClearError();
+	void LockClearError();
 
 	PlayerError GetErrorType() const {
 		return error_type;
@@ -401,15 +407,13 @@ public:
 	 * Like ReadTaggedSong(), but locks and unlocks the object.
 	 */
 	DetachedSong *LockReadTaggedSong() {
-		Lock();
-		DetachedSong *result = ReadTaggedSong();
-		Unlock();
-		return result;
+		const ScopeLock protect(mutex);
+		return ReadTaggedSong();
 	}
 
-	void Stop();
+	void LockStop();
 
-	void UpdateAudio();
+	void LockUpdateAudio();
 
 private:
 	void EnqueueSongLocked(DetachedSong *song) {
@@ -417,15 +421,18 @@ private:
 		assert(next_song == nullptr);
 
 		next_song = song;
+		seek_time = SongTime::zero();
 		SynchronousCommand(PlayerCommand::QUEUE);
 	}
+
+	bool SeekLocked(DetachedSong *song, SongTime t, Error &error_r);
 
 public:
 	/**
 	 * @param song the song to be queued; the given instance will be owned
 	 * and freed by the player
 	 */
-	void EnqueueSong(DetachedSong *song);
+	void LockEnqueueSong(DetachedSong *song);
 
 	/**
 	 * Makes the player thread seek the specified song to a position.
@@ -435,7 +442,7 @@ public:
 	 * @return true on success, false on failure (e.g. if MPD isn't
 	 * playing currently)
 	 */
-	bool Seek(DetachedSong *song, SongTime t);
+	bool LockSeek(DetachedSong *song, SongTime t, Error &error_r);
 
 	void SetCrossFade(float cross_fade_seconds);
 

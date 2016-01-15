@@ -17,13 +17,26 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef MPD_STDBIN_H
-#define MPD_STDBIN_H
+#include "config.h"
+#include "DirectoryReader.hxx"
+#include "system/Error.hxx"
 
 #ifdef WIN32
-#include <fcntl.h>
-/** set binary mode on stdin/stdout */
-int _CRT_fmode = _O_BINARY;
-#endif
+
+DirectoryReader::DirectoryReader(Path dir)
+	:handle(FindFirstFile(MakeWildcardPath(dir.c_str()), &data))
+{
+	if (handle == INVALID_HANDLE_VALUE)
+		throw FormatLastError("Failed to open %s", dir.c_str());
+}
+
+#else
+
+DirectoryReader::DirectoryReader(Path dir)
+	:dirp(opendir(dir.c_str()))
+{
+	if (dirp == nullptr)
+		throw FormatErrno("Failed to open %s", dir.c_str());
+}
 
 #endif

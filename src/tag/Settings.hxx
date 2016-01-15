@@ -17,27 +17,29 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef WSTRING_UTIL_HXX
-#define WSTRING_UTIL_HXX
+#ifndef MPD_TAG_SETTINGS_HXX
+#define MPD_TAG_SETTINGS_HXX
 
+#include "Mask.hxx"
+#include "TagType.h"
 #include "Compiler.h"
 
-#include <wchar.h>
+#include <stdint.h>
 
-gcc_pure
-bool
-StringStartsWith(const wchar_t *haystack, const wchar_t *needle);
+extern tag_mask_t global_tag_mask;
 
-gcc_pure
-bool
-StringEndsWith(const wchar_t *haystack, const wchar_t *needle);
+gcc_const
+static inline bool
+IsTagEnabled(unsigned tag)
+{
+	return global_tag_mask & (1u << tag);
+}
 
-/**
- * Check if the given string ends with the specified suffix.  If yes,
- * returns the position of the suffix, and nullptr otherwise.
- */
-gcc_pure
-const wchar_t *
-FindStringSuffix(const wchar_t *p, const wchar_t *suffix);
+gcc_const
+static inline bool
+IsTagEnabled(TagType tag)
+{
+	return IsTagEnabled(unsigned(tag));
+}
 
 #endif

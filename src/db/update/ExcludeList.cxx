@@ -27,41 +27,18 @@
 #include "fs/Path.hxx"
 #include "fs/NarrowPath.hxx"
 #include "fs/io/TextFile.hxx"
-#include "util/StringUtil.hxx"
-#include "util/Error.hxx"
+#include "system/Error.hxx"
 #include "Log.hxx"
 
 #include <assert.h>
 #include <string.h>
 #include <errno.h>
 
-#ifdef HAVE_CLASS_GLOB
-
-gcc_pure
-static bool
-IsFileNotFound(const Error &error)
-{
-#ifdef WIN32
-	return error.IsDomain(win32_domain) &&
-		error.GetCode() == ERROR_FILE_NOT_FOUND;
-#else
-	return error.IsDomain(errno_domain) && error.GetCode() == ENOENT;
-#endif
-}
-
-#endif
-
 bool
 ExcludeList::LoadFile(Path path_fs)
-{
+try {
 #ifdef HAVE_CLASS_GLOB
-	Error error;
-	TextFile file(path_fs, error);
-	if (file.HasFailed()) {
-		if (!IsFileNotFound(error))
-			LogError(error);
-		return false;
-	}
+	TextFile file(path_fs);
 
 	char *line;
 	while ((line = file.ReadLine()) != nullptr) {
@@ -79,6 +56,13 @@ ExcludeList::LoadFile(Path path_fs)
 #endif
 
 	return true;
+} catch (const std::system_error &e) {
+	if (!IsFileNotFound(e))
+		LogError(e);
+	return false;
+} catch (const std::exception &e) {
+	LogError(e);
+	return false;
 }
 
 bool
@@ -89,6 +73,12 @@ ExcludeList::Check(Path name_fs) const
 	/* XXX include full path name in check */
 
 #ifdef HAVE_CLASS_GLOB
+	if (parent != nullptr) {
+		if (parent->Check(name_fs)) {
+			return true;
+		}
+	}
+
 	for (const auto &i : patterns)
 		if (i.Check(NarrowPath(name_fs).c_str()))
 			return true;

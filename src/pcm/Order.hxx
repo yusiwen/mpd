@@ -17,9 +17,21 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "TagSettings.h"
+#ifndef MPD_PCM_ORDER_HXX
+#define MPD_PCM_ORDER_HXX
 
-bool ignore_tag_items[TAG_NUM_OF_ITEM_TYPES] = {
-	/* ignore comments by default */
-	[TAG_COMMENT] = true,
-};
+#include "check.h"
+#include "AudioFormat.hxx"
+
+class PcmBuffer;
+template<typename T> struct ConstBuffer;
+
+/**
+ * Convert the given buffer from FLAC channel order
+ * (https://xiph.org/flac/format.html) to ALSA channel order.
+ */
+ConstBuffer<void>
+ToAlsaChannelOrder(PcmBuffer &buffer, ConstBuffer<void> src,
+		   SampleFormat sample_format, unsigned channels);
+
+#endif

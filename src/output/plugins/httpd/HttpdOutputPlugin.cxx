@@ -25,8 +25,8 @@
 #include "encoder/EncoderInterface.hxx"
 #include "encoder/EncoderPlugin.hxx"
 #include "encoder/EncoderList.hxx"
-#include "net/Resolver.hxx"
 #include "net/SocketAddress.hxx"
+#include "net/ToString.hxx"
 #include "Page.hxx"
 #include "IcyMetaDataServer.hxx"
 #include "system/fd_util.h"
@@ -34,6 +34,7 @@
 #include "event/Call.hxx"
 #include "util/Error.hxx"
 #include "util/Domain.hxx"
+#include "util/DeleteDisposer.hxx"
 #include "Log.hxx"
 
 #include <assert.h>
@@ -169,9 +170,9 @@ httpd_output_finish(AudioOutput *ao)
 inline void
 HttpdOutput::AddClient(int fd)
 {
-	clients.emplace_front(*this, fd, GetEventLoop(),
-			      encoder->plugin.tag == nullptr);
-	++clients_cnt;
+	auto *client = new HttpdClient(*this, fd, GetEventLoop(),
+				       encoder->plugin.tag == nullptr);
+	clients.push_front(*client);
 
 	/* pass metadata to client */
 	if (metadata != nullptr)
@@ -209,7 +210,7 @@ HttpdOutput::OnAccept(int fd, SocketAddress address, gcc_unused int uid)
 
 #ifdef HAVE_LIBWRAP
 	if (address.GetFamily() != AF_UNIX) {
-		const auto hostaddr = sockaddr_to_string(address);
+		const auto hostaddr = ToString(address);
 		// TODO: shall we obtain the program name from argv[0]?
 		const char *progname = "mpd";
 
@@ -235,7 +236,7 @@ HttpdOutput::OnAccept(int fd, SocketAddress address, gcc_unused int uid)
 
 	if (fd >= 0) {
 		/* can we allow additional client */
-		if (open && (clients_max == 0 ||  clients_cnt < clients_max))
+		if (open && (clients_max == 0 || clients.size() < clients_max))
 			AddClient(fd);
 		else
 			close_socket(fd);
@@ -319,7 +320,6 @@ HttpdOutput::Open(AudioFormat &audio_format, Error &error)
 
 	/* initialize other attributes */
 
-	clients_cnt = 0;
 	timer = new Timer(audio_format);
 
 	open = true;
@@ -347,7 +347,7 @@ HttpdOutput::Close()
 	delete timer;
 
 	BlockingCall(GetEventLoop(), [this](){
-			clients.clear();
+			clients.clear_and_dispose(DeleteDisposer());
 		});
 
 	if (header != nullptr)
@@ -368,17 +368,10 @@ httpd_output_close(AudioOutput *ao)
 void
 HttpdOutput::RemoveClient(HttpdClient &client)
 {
-	assert(clients_cnt > 0);
+	assert(!clients.empty());
 
-	for (auto prev = clients.before_begin(), i = std::next(prev);;
-	     prev = i, i = std::next(prev)) {
-		assert(i != clients.end());
-		if (&*i == &client) {
-			clients.erase_after(prev);
-			clients_cnt--;
-			break;
-		}
-	}
+	clients.erase_and_dispose(clients.iterator_to(client),
+				  DeleteDisposer());
 }
 
 void

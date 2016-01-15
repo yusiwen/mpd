@@ -17,29 +17,11 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-/* \file
- *
- * The player thread controls the playback.  It acts as a bridge
- * between the decoder thread and the output thread(s): it receives
- * #MusicChunk objects from the decoder, optionally mixes them
- * (cross-fading), applies software volume, and sends them to the
- * audio outputs via audio_output_all_play().
- *
- * It is controlled by the main thread (the playlist code), see
- * PlayerControl.hxx.  The playlist enqueues new songs into the player
- * thread and sends it commands.
- *
- * The player thread itself does not do any I/O.  It synchronizes with
- * other threads via #GMutex and #GCond objects, and passes
- * #MusicChunk instances around in #MusicPipe objects.
- */
+#ifndef NET_FEATURES_HXX
+#define NET_FEATURES_HXX
 
-#ifndef MPD_PLAYER_THREAD_HXX
-#define MPD_PLAYER_THREAD_HXX
-
-struct PlayerControl;
-
-void
-StartPlayerThread(PlayerControl &pc);
+/* feature macros are defined in config.h, and this header verifies
+   that it has been included earlier */
+#include "check.h"
 
 #endif

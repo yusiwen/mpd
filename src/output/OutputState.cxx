@@ -29,7 +29,7 @@
 #include "Domain.hxx"
 #include "Log.hxx"
 #include "fs/io/BufferedOutputStream.hxx"
-#include "util/StringUtil.hxx"
+#include "util/StringCompare.hxx"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -56,10 +56,9 @@ audio_output_state_read(const char *line, MultipleOutputs &outputs)
 	char *endptr;
 	const char *name;
 
-	if (!StringStartsWith(line, AUDIO_DEVICE_STATE))
+	line = StringAfterPrefix(line, AUDIO_DEVICE_STATE);
+	if (line == nullptr)
 		return false;
-
-	line += sizeof(AUDIO_DEVICE_STATE) - 1;
 
 	value = strtol(line, &endptr, 10);
 	if (*endptr != ':' || (value != 0 && value != 1))

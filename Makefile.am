@@ -81,6 +81,7 @@ libmpd_a_SOURCES = \
 	src/protocol/Ack.cxx src/protocol/Ack.hxx \
 	src/protocol/ArgParser.cxx src/protocol/ArgParser.hxx \
 	src/protocol/Result.cxx src/protocol/Result.hxx \
+	src/command/Request.hxx \
 	src/command/CommandResult.hxx \
 	src/command/CommandError.cxx src/command/CommandError.hxx \
 	src/command/AllCommands.cxx src/command/AllCommands.hxx \
@@ -94,7 +95,6 @@ libmpd_a_SOURCES = \
 	src/command/OtherCommands.cxx src/command/OtherCommands.hxx \
 	src/command/CommandListBuilder.cxx src/command/CommandListBuilder.hxx \
 	src/Idle.cxx src/Idle.hxx \
-	src/CrossFade.cxx src/CrossFade.hxx \
 	src/decoder/DecoderError.cxx src/decoder/DecoderError.hxx \
 	src/decoder/DecoderThread.cxx src/decoder/DecoderThread.hxx \
 	src/decoder/DecoderCommand.hxx \
@@ -121,6 +121,7 @@ libmpd_a_SOURCES = \
 	src/client/ClientMessage.cxx src/client/ClientMessage.hxx \
 	src/client/ClientSubscribe.cxx \
 	src/client/ClientFile.cxx \
+	src/client/Response.cxx src/client/Response.hxx \
 	src/Listen.cxx src/Listen.hxx \
 	src/LogInit.cxx src/LogInit.hxx \
 	src/LogBackend.cxx src/LogBackend.hxx \
@@ -138,9 +139,10 @@ libmpd_a_SOURCES = \
 	src/Mapper.cxx src/Mapper.hxx \
 	src/Partition.cxx src/Partition.hxx \
 	src/Permission.cxx src/Permission.hxx \
-	src/PlayerThread.cxx src/PlayerThread.hxx \
-	src/PlayerControl.cxx src/PlayerControl.hxx \
-	src/PlayerListener.hxx \
+	src/player/CrossFade.cxx src/player/CrossFade.hxx \
+	src/player/Thread.cxx src/player/Thread.hxx \
+	src/player/Control.cxx src/player/Control.hxx \
+	src/player/Listener.hxx \
 	src/PlaylistError.cxx src/PlaylistError.hxx \
 	src/PlaylistGlobal.cxx src/PlaylistGlobal.hxx \
 	src/PlaylistPrint.cxx src/PlaylistPrint.hxx \
@@ -166,6 +168,7 @@ libmpd_a_SOURCES = \
 	src/ReplayGainConfig.cxx src/ReplayGainConfig.hxx \
 	src/ReplayGainInfo.cxx src/ReplayGainInfo.hxx \
 	src/DetachedSong.cxx src/DetachedSong.hxx \
+	src/LocateUri.cxx src/LocateUri.hxx \
 	src/SongUpdate.cxx \
 	src/SongLoader.cxx src/SongLoader.hxx \
 	src/SongPrint.cxx src/SongPrint.hxx \
@@ -340,6 +343,28 @@ EXTRA_src_mpd_DEPENDENCIES = win32/res/mpd.$(OBJEXT)
 src_mpd_LDFLAGS = -Wl,win32/res/mpd.$(OBJEXT)
 endif
 
+#
+# Haiku resource file
+#
+
+src/haiku/mpd.rsrc: src/haiku/mpd.rdef
+	$(RC) -o $@ $<
+
+if HAVE_HAIKU
+noinst_DATA = src/haiku/mpd.rdef
+
+EXTRA_src_mpd_DEPENDENCIES = src/haiku/mpd.rsrc
+
+src/mpd.haiku-rsrc-done: src/mpd src/haiku/mpd.rsrc
+	$(XRES) -o src/mpd src/haiku/mpd.rsrc
+	@touch src/mpd.haiku-rsrc-done
+
+all-local: src/mpd.haiku-rsrc-done
+
+clean-local:
+	rm -rf src/haiku/mpd.rsrc src/mpd.haiku-rsrc-done
+endif
+
 if ENABLE_DATABASE
 if ENABLE_INOTIFY
 libmpd_a_SOURCES += \
@@ -364,9 +389,11 @@ endif
 # Generic utility library
 
 libutil_a_SOURCES = \
+	src/util/RuntimeError.hxx \
 	src/util/Macros.hxx \
 	src/util/Cast.hxx \
 	src/util/Clamp.hxx \
+	src/util/DeleteDisposer.hxx \
 	src/util/Alloc.cxx src/util/Alloc.hxx \
 	src/util/VarSize.hxx \
 	src/util/Error.cxx src/util/Error.hxx \
@@ -377,9 +404,11 @@ libutil_a_SOURCES = \
 	src/util/CharUtil.hxx \
 	src/util/NumberParser.hxx \
 	src/util/StringPointer.hxx \
+	src/util/StringView.cxx src/util/StringView.hxx \
 	src/util/AllocatedString.cxx src/util/AllocatedString.hxx \
 	src/util/StringUtil.cxx src/util/StringUtil.hxx \
-	src/util/WStringUtil.cxx src/util/WStringUtil.hxx \
+	src/util/StringCompare.cxx src/util/StringCompare.hxx \
+	src/util/WStringCompare.cxx src/util/WStringCompare.hxx \
 	src/util/StringAPI.hxx \
 	src/util/WStringAPI.hxx \
 	src/util/DivideString.cxx src/util/DivideString.hxx \
@@ -424,8 +453,10 @@ libthread_a_SOURCES = \
 # Networking library
 
 libnet_a_SOURCES = \
+	src/net/ToString.cxx src/net/ToString.hxx \
 	src/net/Resolver.cxx src/net/Resolver.hxx \
 	src/net/StaticSocketAddress.cxx src/net/StaticSocketAddress.hxx \
+	src/net/AllocatedSocketAddress.cxx src/net/AllocatedSocketAddress.hxx \
 	src/net/SocketAddress.cxx src/net/SocketAddress.hxx \
 	src/net/SocketUtil.cxx src/net/SocketUtil.hxx \
 	src/net/SocketError.cxx src/net/SocketError.hxx
@@ -434,6 +465,7 @@ libnet_a_SOURCES = \
 
 libsystem_a_SOURCES = \
 	src/system/ByteOrder.hxx \
+	src/system/Error.hxx \
 	src/system/FatalError.cxx src/system/FatalError.hxx \
 	src/system/FileDescriptor.cxx src/system/FileDescriptor.hxx \
 	src/system/fd_util.c src/system/fd_util.h \
@@ -508,6 +540,7 @@ libpcm_a_SOURCES = \
 	src/pcm/Neon.hxx \
 	src/pcm/FormatConverter.cxx src/pcm/FormatConverter.hxx \
 	src/pcm/ChannelsConverter.cxx src/pcm/ChannelsConverter.hxx \
+	src/pcm/Order.cxx src/pcm/Order.hxx \
 	src/pcm/Resampler.hxx \
 	src/pcm/GlueResampler.cxx src/pcm/GlueResampler.hxx \
 	src/pcm/FallbackResampler.cxx src/pcm/FallbackResampler.hxx \
@@ -567,12 +600,13 @@ libfs_a_SOURCES = \
 	src/fs/Glob.hxx \
 	src/fs/StandardDirectory.cxx src/fs/StandardDirectory.hxx \
 	src/fs/CheckFile.cxx src/fs/CheckFile.hxx \
-	src/fs/DirectoryReader.hxx
+	src/fs/DirectoryReader.cxx src/fs/DirectoryReader.hxx
 libfs_a_CPPFLAGS = $(AM_CPPFLAGS) $(ZLIB_CFLAGS)
 
 if ENABLE_ZLIB
 libfs_a_SOURCES += \
 	src/lib/zlib/Domain.cxx src/lib/zlib/Domain.hxx \
+	src/lib/zlib/Error.cxx src/lib/zlib/Error.hxx \
 	src/fs/io/GunzipReader.cxx src/fs/io/GunzipReader.hxx \
 	src/fs/io/AutoGunzipReader.cxx src/fs/io/AutoGunzipReader.hxx \
 	src/fs/io/GzipOutputStream.cxx src/fs/io/GzipOutputStream.hxx
@@ -814,7 +848,8 @@ libtag_a_SOURCES =\
 	src/tag/TagBuilder.cxx src/tag/TagBuilder.hxx \
 	src/tag/TagItem.hxx \
 	src/tag/TagHandler.cxx src/tag/TagHandler.hxx \
-	src/tag/TagSettings.c src/tag/TagSettings.h \
+	src/tag/Mask.hxx \
+	src/tag/Settings.cxx src/tag/Settings.hxx \
 	src/tag/TagConfig.cxx src/tag/TagConfig.hxx \
 	src/tag/TagNames.c \
 	src/tag/TagString.cxx src/tag/TagString.hxx \
@@ -1272,6 +1307,7 @@ liboutput_plugins_a_SOURCES = \
 
 MIXER_LIBS = \
 	libmixer_plugins.a \
+	$(ALSA_LIBS) \
 	$(PULSE_LIBS2)
 
 MIXER_API_SRC = \
@@ -1326,6 +1362,14 @@ if HAVE_FIFO
 liboutput_plugins_a_SOURCES += \
 	src/output/plugins/FifoOutputPlugin.cxx \
 	src/output/plugins/FifoOutputPlugin.hxx
+endif
+
+if HAVE_HAIKU
+liboutput_plugins_a_SOURCES += \
+	src/output/plugins/HaikuOutputPlugin.cxx \
+	src/output/plugins/HaikuOutputPlugin.hxx
+libmixer_plugins_a_SOURCES += \
+	src/mixer/plugins/HaikuMixerPlugin.cxx src/mixer/plugins/HaikuMixerPlugin.hxx
 endif
 
 if ENABLE_PIPE_OUTPUT
@@ -1441,6 +1485,12 @@ PLAYLIST_LIBS = \
 	$(EXPAT_LIBS) \
 	$(FLAC_LIBS)
 
+if ENABLE_FLAC
+libplaylist_plugins_a_SOURCES += \
+	src/playlist/plugins/FlacPlaylistPlugin.cxx \
+	src/playlist/plugins/FlacPlaylistPlugin.hxx
+endif
+
 if ENABLE_CUE
 libplaylist_plugins_a_SOURCES += \
 	src/playlist/cue/CueParser.cxx src/playlist/cue/CueParser.hxx \
@@ -1547,6 +1597,7 @@ noinst_PROGRAMS = \
 	test/dump_playlist \
 	test/run_decoder \
 	test/read_tags \
+	test/ReadApeTags \
 	test/run_filter \
 	test/run_output \
 	test/run_convert \
@@ -1653,7 +1704,6 @@ test_run_input_LDADD = \
 	libutil.a
 test_run_input_SOURCES = test/run_input.cxx \
 	test/ScopeIOThread.hxx \
-	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx \
 	src/TagSave.cxx
@@ -1711,15 +1761,16 @@ noinst_PROGRAMS += test/run_gzip test/run_gunzip
 test_run_gzip_LDADD = \
 	libutil.a \
 	$(FS_LIBS)
-test_run_gzip_SOURCES = test/run_gzip.cxx
+test_run_gzip_SOURCES = test/run_gzip.cxx \
+	src/Log.cxx src/LogBackend.cxx
 
 test_run_gunzip_SOURCES = test/run_gunzip.cxx \
 	src/Log.cxx src/LogBackend.cxx
 test_run_gunzip_LDADD = \
-	libutil.a \
 	$(FS_LIBS) \
 	$(ICU_LDADD) \
-	libsystem.a
+	libsystem.a \
+	libutil.a
 
 endif
 
@@ -1745,7 +1796,6 @@ test_dump_text_file_LDADD = \
 	libutil.a
 test_dump_text_file_SOURCES = test/dump_text_file.cxx \
 	test/ScopeIOThread.hxx \
-	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx
 
@@ -1797,7 +1847,6 @@ test_run_decoder_LDADD = \
 test_run_decoder_SOURCES = test/run_decoder.cxx \
 	test/FakeDecoderAPI.cxx test/FakeDecoderAPI.hxx \
 	test/ScopeIOThread.hxx \
-	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx \
 	src/ReplayGainInfo.cxx \
@@ -1829,6 +1878,13 @@ test_read_tags_SOURCES = test/read_tags.cxx \
 	src/AudioFormat.cxx src/CheckAudioFormat.cxx \
 	$(DECODER_SRC)
 
+test_ReadApeTags_LDADD = \
+	$(TAG_LIBS) \
+	$(FS_LIBS) \
+	$(ICU_LDADD) \
+	libutil.a
+test_ReadApeTags_SOURCES = test/ReadApeTags.cxx
+
 if ENABLE_ID3TAG
 test_dump_rva2_LDADD = \
 	$(TAG_LIBS) \
@@ -1847,7 +1903,6 @@ test_run_filter_LDADD = \
 	libutil.a
 test_run_filter_SOURCES = test/run_filter.cxx \
 	test/FakeReplayGainConfig.cxx \
-	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/filter/FilterPlugin.cxx src/filter/FilterRegistry.cxx \
 	src/CheckAudioFormat.cxx \
@@ -1858,7 +1913,6 @@ test_run_filter_SOURCES = test/run_filter.cxx \
 if ENABLE_ENCODER
 noinst_PROGRAMS += test/run_encoder
 test_run_encoder_SOURCES = test/run_encoder.cxx \
-	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/CheckAudioFormat.cxx \
 	src/AudioFormat.cxx \
@@ -1878,7 +1932,6 @@ endif
 if ENABLE_VORBISENC
 noinst_PROGRAMS += test/test_vorbis_encoder
 test_test_vorbis_encoder_SOURCES = test/test_vorbis_encoder.cxx \
-	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/CheckAudioFormat.cxx \
 	src/AudioFormat.cxx \
@@ -1898,7 +1951,6 @@ test_test_vorbis_encoder_LDADD = $(MPD_LIBS) \
 endif
 
 test_software_volume_SOURCES = test/software_volume.cxx \
-	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/AudioFormat.cxx src/CheckAudioFormat.cxx \
 	src/AudioParser.cxx
@@ -1920,7 +1972,6 @@ test_run_avahi_LDADD = \
 	$(AVAHI_LIBS)
 
 test_run_normalize_SOURCES = test/run_normalize.cxx \
-	test/stdbin.h \
 	src/CheckAudioFormat.cxx \
 	src/AudioCompress/compress.c \
 	src/AudioParser.cxx
@@ -1958,7 +2009,6 @@ test_run_output_LDADD = $(MPD_LIBS) \
 test_run_output_SOURCES = test/run_output.cxx \
 	test/FakeReplayGainConfig.cxx \
 	test/ScopeIOThread.hxx \
-	test/stdbin.h \
 	src/Log.cxx src/LogBackend.cxx \
 	src/IOThread.cxx \
 	src/CheckAudioFormat.cxx \
@@ -2105,6 +2155,7 @@ test_test_translate_song_SOURCES = \
 	src/PlaylistError.cxx \
 	src/DetachedSong.cxx \
 	src/SongLoader.cxx \
+	src/LocateUri.cxx \
 	src/Log.cxx \
 	test/test_translate_song.cxx
 test_test_translate_song_CPPFLAGS = $(AM_CPPFLAGS) $(CPPUNIT_CFLAGS) -DCPPUNIT_HAVE_RTTI=0
@@ -2247,4 +2298,5 @@ EXTRA_DIST = $(doc_DATA) autogen.sh \
 	android/src/Bridge.java \
 	android/src/Loader.java \
 	android/src/Main.java \
-	win32/res/mpd.rc.in win32/res/mpd.ico
+	win32/res/mpd.rc.in win32/res/mpd.ico \
+	src/haiku/App_MusicPD

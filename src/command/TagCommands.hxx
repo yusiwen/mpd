@@ -23,12 +23,13 @@
 #include "CommandResult.hxx"
 
 class Client;
-template<typename T> struct ConstBuffer;
+class Request;
+class Response;
 
 CommandResult
-handle_addtagid(Client &client, ConstBuffer<const char *> args);
+handle_addtagid(Client &client, Request request, Response &response);
 
 CommandResult
-handle_cleartagid(Client &client, ConstBuffer<const char *> args);
+handle_cleartagid(Client &client, Request request, Response &response);
 
 #endif

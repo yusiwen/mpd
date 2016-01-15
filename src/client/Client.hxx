@@ -51,12 +51,6 @@ public:
 	struct playlist &playlist;
 	struct PlayerControl &player_control;
 
-	struct Disposer {
-		void operator()(Client *client) const {
-			delete client;
-		}
-	};
-
 	unsigned permission;
 
 	/** the uid of the client process, or -1 if unknown */
@@ -112,7 +106,7 @@ public:
 	void Close();
 	void SetExpired();
 
-	using FullyBufferedSocket::Write;
+	bool Write(const void *data, size_t length);
 
 	/**
 	 * returns the uid of the client process, or a negative value

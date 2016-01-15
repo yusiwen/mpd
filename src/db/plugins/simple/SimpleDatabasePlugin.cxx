@@ -46,6 +46,8 @@
 #include "fs/io/GzipOutputStream.hxx"
 #endif
 
+#include <memory>
+
 #include <errno.h>
 
 static constexpr Domain simple_db_domain("simple_db");
@@ -182,11 +184,9 @@ SimpleDatabase::Load(Error &error)
 	assert(!path.IsNull());
 	assert(root != nullptr);
 
-	TextFile file(path, error);
-	if (file.HasFailed())
-		return false;
+	TextFile file(path);
 
-	if (!db_load_internal(file, *root, error) || !file.Check(error))
+	if (!db_load_internal(file, *root, error))
 		return false;
 
 	FileInfo fi;
@@ -198,7 +198,7 @@ SimpleDatabase::Load(Error &error)
 
 bool
 SimpleDatabase::Open(Error &error)
-{
+try {
 	assert(prefixed_light_song == nullptr);
 
 	root = Directory::NewRoot();
@@ -221,6 +221,9 @@ SimpleDatabase::Open(Error &error)
 	}
 
 	return true;
+} catch (const std::exception &e) {
+	error.Set(e);
+	return false;
 }
 
 void
@@ -240,13 +243,13 @@ SimpleDatabase::GetSong(const char *uri, Error &error) const
 	assert(prefixed_light_song == nullptr);
 	assert(borrowed_song_count == 0);
 
-	db_lock();
+	ScopeDatabaseLock protect;
 
 	auto r = root->LookupDirectory(uri);
 
 	if (r.directory->IsMount()) {
 		/* pass the request to the mounted database */
-		db_unlock();
+		protect.unlock();
 
 		const LightSong *song =
 			r.directory->mounted_database->GetSong(r.uri, error);
@@ -260,7 +263,6 @@ SimpleDatabase::GetSong(const char *uri, Error &error) const
 
 	if (r.uri == nullptr) {
 		/* it's a directory */
-		db_unlock();
 		error.Format(db_domain, DB_NOT_FOUND,
 			     "No such song: %s", uri);
 		return nullptr;
@@ -268,14 +270,13 @@ SimpleDatabase::GetSong(const char *uri, Error &error) const
 
 	if (strchr(r.uri, '/') != nullptr) {
 		/* refers to a URI "below" the actual song */
-		db_unlock();
 		error.Format(db_domain, DB_NOT_FOUND,
 			     "No such song: %s", uri);
 		return nullptr;
 	}
 
 	const Song *song = r.directory->FindSong(r.uri);
-	db_unlock();
+	protect.unlock();
 	if (song == nullptr) {
 		error.Format(db_domain, DB_NOT_FOUND,
 			     "No such song: %s", uri);
@@ -348,7 +349,7 @@ SimpleDatabase::Visit(const DatabaseSelection &selection,
 
 bool
 SimpleDatabase::VisitUniqueTags(const DatabaseSelection &selection,
-				TagType tag_type, uint32_t group_mask,
+				TagType tag_type, tag_mask_t group_mask,
 				VisitTag visit_tag,
 				Error &error) const
 {
@@ -364,37 +365,30 @@ SimpleDatabase::GetStats(const DatabaseSelection &selection,
 	return ::GetStats(*this, selection, stats, error);
 }
 
-bool
-SimpleDatabase::Save(Error &error)
+void
+SimpleDatabase::Save()
 {
-	db_lock();
+	{
+		const ScopeDatabaseLock protect;
 
-	LogDebug(simple_db_domain, "removing empty directories from DB");
-	root->PruneEmpty();
+		LogDebug(simple_db_domain, "removing empty directories from DB");
+		root->PruneEmpty();
 
-	LogDebug(simple_db_domain, "sorting DB");
-	root->Sort();
-
-	db_unlock();
+		LogDebug(simple_db_domain, "sorting DB");
+		root->Sort();
+	}
 
 	LogDebug(simple_db_domain, "writing DB");
 
-	FileOutputStream fos(path, error);
-	if (!fos.IsDefined())
-		return false;
+	FileOutputStream fos(path);
 
 	OutputStream *os = &fos;
 
 #ifdef ENABLE_ZLIB
-	GzipOutputStream *gzip = nullptr;
+	std::unique_ptr<GzipOutputStream> gzip;
 	if (compress) {
-		gzip = new GzipOutputStream(*os, error);
-		if (!gzip->IsDefined()) {
-			delete gzip;
-			return false;
-		}
-
-		os = gzip;
+		gzip.reset(new GzipOutputStream(*os));
+		os = gzip.get();
 	}
 #endif
 
@@ -402,30 +396,20 @@ SimpleDatabase::Save(Error &error)
 
 	db_save_internal(bos, *root);
 
-	if (!bos.Flush(error)) {
-#ifdef ENABLE_ZLIB
-		delete gzip;
-#endif
-		return false;
-	}
+	bos.Flush();
 
 #ifdef ENABLE_ZLIB
 	if (gzip != nullptr) {
-		bool success = gzip->Flush(error);
-		delete gzip;
-		if (!success)
-			return false;
+		gzip->Flush();
+		gzip.reset();
 	}
 #endif
 
-	if (!fos.Commit(error))
-		return false;
+	fos.Commit();
 
 	FileInfo fi;
 	if (GetFileInfo(path, fi))
 		mtime = fi.GetModificationTime();
-
-	return true;
 }
 
 bool
